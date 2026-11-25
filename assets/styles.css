@@ -253,15 +253,13 @@ button, input, select { font: inherit; color: inherit; }
 .cap__aviso { margin: .3rem 0 0; font-size: .8rem; color: var(--gris-70); font-style: italic; }
 
 .mosaico {
+  --alto-fila: 13rem;
   margin-top: 1rem;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: 9.5rem;
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
-.mosaico--1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); grid-auto-rows: 17rem; }
-.mosaico--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 14rem; }
-.mosaico--3 .foto:first-child, .mosaico--n .foto:first-child { grid-column: span 2; grid-row: span 2; }
+.mosaico::after { content: ''; flex-grow: 999; }
 .foto {
   position: relative;
   padding: 0;
@@ -269,18 +267,20 @@ button, input, select { font: inherit; color: inherit; }
   background: var(--fondo-suave);
   cursor: zoom-in;
   overflow: hidden;
+  flex-grow: var(--r);
+  flex-basis: calc(var(--r) * var(--alto-fila));
+  aspect-ratio: var(--w) / var(--h);
+  max-height: calc(var(--alto-fila) * 1.6);
 }
 .foto img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   opacity: 0;
-  transition: opacity .25s ease;
+  transition: opacity .35s ease, filter .3s ease;
 }
-.foto img.lista-img { opacity: 1; animation: foto-entra .6s cubic-bezier(.2,.7,.2,1) both; }
-.foto img { transition: opacity .25s ease, transform .5s cubic-bezier(.2,.7,.2,1), filter .3s ease; }
-.foto:hover img, .foto:focus-visible img { transform: scale(1.045); filter: brightness(.94); }
-@keyframes foto-entra { from { transform: scale(1.06); } to { transform: scale(1); } }
+.foto img.lista-img { opacity: 1; }
+.foto:hover img, .foto:focus-visible img { filter: brightness(.9); }
 .foto__mas {
   position: absolute;
   inset: 0;
@@ -524,9 +524,7 @@ button, input, select { font: inherit; color: inherit; }
   .cap__dia, .cap__dia--rango { font-size: 1.5rem; }
   .cap__mes { margin-top: 0; }
   .cap h3 { font-size: 1.05rem; }
-  .mosaico, .mosaico--1, .mosaico--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 7.5rem; }
-  .mosaico--1 .foto { grid-column: span 2; grid-row: span 2; }
-  .mosaico--3 .foto:first-child, .mosaico--n .foto:first-child { grid-column: span 2; grid-row: span 2; }
+  .mosaico { --alto-fila: 7.5rem; }
   .visor__barra { flex-direction: column; padding: .75rem 1rem; }
   .visor__acciones { justify-content: flex-start; }
   .visor__escena { padding: .5rem; }

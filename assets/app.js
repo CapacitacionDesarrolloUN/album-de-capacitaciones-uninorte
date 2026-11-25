@@ -339,7 +339,7 @@
     c.fotos.slice(0, MAX).forEach((f, i) => {
       const img = el('img', { alt: '', 'data-id': f.id, width: f.w, height: f.h, decoding: 'async' });
       const resto = n - MAX;
-      const btn = el('button', { type: 'button', class: 'foto', 'aria-label': 'Ver foto ' + (i + 1) + ' de ' + n + ' de ' + c.titulo, onclick: () => abrirVisor(c, i) },
+      const btn = el('button', { type: 'button', class: 'foto', style: '--r:' + (f.w / f.h).toFixed(4) + ';--w:' + f.w + ';--h:' + f.h, 'aria-label': 'Ver foto ' + (i + 1) + ' de ' + n + ' de ' + c.titulo, onclick: () => abrirVisor(c, i) },
         img, i === MAX - 1 && resto > 0 ? el('span', { class: 'foto__mas' }, '+' + resto + ' fotos') : null);
       mosaico.append(btn);
       observadorFotos.observe(img);
