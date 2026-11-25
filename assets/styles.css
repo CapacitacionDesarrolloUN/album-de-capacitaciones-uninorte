@@ -408,13 +408,19 @@ button, input, select { font: inherit; color: inherit; }
 .visor__boton--cerrar { background: var(--blanco); color: var(--negro); border-color: var(--blanco); }
 .visor__escena {
   position: relative;
-  display: grid;
-  place-items: center;
-  padding: 1rem 4.5rem;
   min-height: 0;
+  overflow: hidden;
 }
-.visor__escena img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.visor__escena img {
+  position: absolute;
+  top: 1rem; bottom: 1rem; left: 4.5rem; right: 4.5rem;
+  width: calc(100% - 9rem);
+  height: calc(100% - 2rem);
+  max-width: none;
+  object-fit: contain;
+}
 .visor__nav {
+  z-index: 2;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -527,7 +533,7 @@ button, input, select { font: inherit; color: inherit; }
   .mosaico { --alto-fila: 7.5rem; }
   .visor__barra { flex-direction: column; padding: .75rem 1rem; }
   .visor__acciones { justify-content: flex-start; }
-  .visor__escena { padding: .5rem; }
+  .visor__escena img { top: .5rem; bottom: .5rem; left: .5rem; right: .5rem; width: calc(100% - 1rem); height: calc(100% - 1rem); }
   .visor__nav { top: auto; bottom: .5rem; transform: none; background: rgba(21,21,21,.7); }
   .visor__tira { padding: .5rem 1rem .75rem; }
   .aviso { left: 1rem; right: 1rem; transform: none; max-width: none; }
