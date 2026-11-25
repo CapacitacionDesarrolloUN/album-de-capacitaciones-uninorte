@@ -44,6 +44,7 @@
         <h1>Álbum de capacitaciones</h1>
         <p id="resumen" class="resumen"></p>
       </div>
+      <button type="button" class="boton boton--chico" id="anadir">Añadir fotos</button>
       <button type="button" class="salir" id="editar" aria-pressed="false">Editar datos</button>
       <button type="button" class="salir" id="salir">Salir</button>
     </div>
@@ -96,6 +97,47 @@
     <div class="dialogo__acciones">
       <button type="button" class="salir" id="cancelar-token">Cancelar</button>
       <button type="submit" class="boton">Guardar cambios</button>
+    </div>
+  </form>
+</div>
+
+<div id="dialogo-fotos" class="dialogo" role="dialog" aria-modal="true" aria-labelledby="dialogo-fotos-titulo" hidden>
+  <form class="dialogo__caja dialogo__caja--ancha" id="form-fotos" novalidate>
+    <h2 id="dialogo-fotos-titulo">Añadir fotos</h2>
+    <label class="soltar" id="soltar" for="archivos">
+      <input id="archivos" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple>
+      <span id="soltar-texto">Elija las fotos o arrástrelas aquí</span>
+    </label>
+    <div id="previas" class="previas"></div>
+
+    <fieldset class="destino">
+      <legend>¿De qué capacitación son?</legend>
+      <label class="opcion"><input type="radio" name="destino" value="existente" checked> Una que ya está en el álbum</label>
+      <label class="opcion"><input type="radio" name="destino" value="nueva"> Una nueva</label>
+    </fieldset>
+
+    <div id="campo-existente">
+      <label for="cap-existente">Capacitación</label>
+      <select id="cap-existente"></select>
+    </div>
+    <div id="campos-nueva" class="campos-nueva" hidden>
+      <div class="ancho"><label for="n-titulo">Nombre de la capacitación</label><input id="n-titulo" type="text" list="lista-plan"></div>
+      <div><label for="n-fecha">Fecha</label><input id="n-fecha" type="date"></div>
+      <div><label for="n-fecha-fin">Fecha final (opcional)</label><input id="n-fecha-fin" type="date"></div>
+      <div class="ancho"><label for="n-programa">Programa</label><input id="n-programa" type="text" list="lista-programas-n"></div>
+    </div>
+
+    <div id="campo-token-fotos" hidden>
+      <label for="token-fotos">Token de GitHub</label>
+      <input id="token-fotos" type="password" autocomplete="off" spellcheck="false">
+      <p class="ayuda">Se pide una sola vez en este navegador. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crear un token</a> con permiso Contents: Read and write en el repositorio del álbum.</p>
+    </div>
+
+    <p id="progreso-fotos" class="progreso" role="status" hidden></p>
+    <p id="error-fotos" class="error" role="alert" hidden></p>
+    <div class="dialogo__acciones">
+      <button type="button" class="salir" id="cancelar-fotos">Cancelar</button>
+      <button type="submit" class="boton" id="subir-fotos">Subir fotos</button>
     </div>
   </form>
 </div>

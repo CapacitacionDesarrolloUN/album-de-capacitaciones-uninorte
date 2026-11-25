@@ -6,6 +6,11 @@ La página pide una contraseña. Las fotos y el índice se guardan cifrados (AES
 
 ## Agregar fotos
 
+Desde la página: botón "Añadir fotos". Se eligen las fotos, la capacitación (existente o nueva) y se suben. La página las reduce, las cifra y las guarda en el repositorio en un solo cambio. La primera vez pide un token de GitHub con permiso Contents: Read and write sobre este repositorio.
+
+Por lotes, con el script:
+
+
 1. Nombre cada foto con el nombre de la capacitación, tal como aparece en el Plan de Formación o parecido. Si una capacitación tiene varias fotos: `Excel avanzado 1.jpg`, `Excel avanzado 2.jpg`, o una carpeta `Excel avanzado/` con las fotos dentro.
 2. Ejecute, desde la carpeta del repositorio:
 

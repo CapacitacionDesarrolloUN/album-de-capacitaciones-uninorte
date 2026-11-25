@@ -531,6 +531,218 @@
     if ([...prog.options].some((o) => o.value === vp)) prog.value = vp;
   }
 
+  // ---------- añadir fotos ----------
+  const API = 'https://api.github.com/repos/' + REPO;
+  let archivosElegidos = [];
+
+  function leerToken() { try { return localStorage.getItem(CLAVE_TOKEN); } catch (e) { return null; } }
+
+  function abrirDialogoFotos() {
+    archivosElegidos = [];
+    $('previas').replaceChildren();
+    $('archivos').value = '';
+    $('soltar-texto').textContent = 'Elija las fotos o arrástrelas aquí';
+    $('error-fotos').hidden = true;
+    $('progreso-fotos').hidden = true;
+    const sel = $('cap-existente');
+    sel.replaceChildren(el('option', { value: '' }, 'Elija una capacitación'));
+    [...datos.capacitaciones].sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'))
+      .forEach((c) => sel.append(el('option', { value: c.id }, c.titulo + (c.fecha ? ' (' + fechaCorta(c.fecha) + ')' : ''))));
+    if (!document.getElementById('lista-programas-n')) {
+      const progs = [...new Set(datos.capacitaciones.map((x) => x.programa).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+      document.body.append(el('datalist', { id: 'lista-programas-n' }, progs.map((p) => el('option', { value: p }))));
+    }
+    $('campo-token-fotos').hidden = !!leerToken();
+    $('subir-fotos').disabled = false;
+    $('dialogo-fotos').hidden = false;
+    $('archivos').focus();
+  }
+
+  const fechaCorta = (iso) => { const i = partes(iso); return i.d + ' ' + MESES[i.m - 1].slice(0, 3) + '. ' + i.a; };
+
+  function elegirArchivos(lista) {
+    const nuevos = [...lista].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
+    archivosElegidos = archivosElegidos.concat(nuevos);
+    $('soltar-texto').textContent = archivosElegidos.length
+      ? plural(archivosElegidos.length, 'foto elegida', 'fotos elegidas') + '. Puede agregar más.'
+      : 'Elija las fotos o arrástrelas aquí';
+    nuevos.forEach((f) => {
+      const u = URL.createObjectURL(f);
+      const img = el('img', { alt: f.name, title: f.name });
+      img.onerror = () => { img.removeAttribute('src'); };
+      img.src = u;
+      $('previas').append(img);
+    });
+  }
+
+  $('anadir').addEventListener('click', abrirDialogoFotos);
+  $('archivos').addEventListener('change', (e) => elegirArchivos(e.target.files));
+  const zona = $('soltar');
+  ['dragenter', 'dragover'].forEach((t) => zona.addEventListener(t, (e) => { e.preventDefault(); zona.classList.add('encima'); }));
+  ['dragleave', 'drop'].forEach((t) => zona.addEventListener(t, (e) => { e.preventDefault(); zona.classList.remove('encima'); }));
+  zona.addEventListener('drop', (e) => elegirArchivos(e.dataTransfer.files));
+  document.querySelectorAll('input[name="destino"]').forEach((r) => r.addEventListener('change', () => {
+    const nueva = document.querySelector('input[name="destino"]:checked').value === 'nueva';
+    $('campos-nueva').hidden = !nueva;
+    $('campo-existente').hidden = nueva;
+  }));
+  $('cancelar-fotos').addEventListener('click', () => { $('dialogo-fotos').hidden = true; $('anadir').focus(); });
+
+  async function reducir(archivo, maximo, calidad) {
+    let fuente;
+    try {
+      fuente = await createImageBitmap(archivo, { imageOrientation: 'from-image' });
+    } catch (e) {
+      fuente = await new Promise((ok, mal) => {
+        const i = new Image();
+        i.onload = () => ok(i);
+        i.onerror = () => mal(new Error('formato'));
+        i.src = URL.createObjectURL(archivo);
+      });
+    }
+    const w0 = fuente.width, h0 = fuente.height;
+    const k = Math.min(1, maximo / Math.max(w0, h0));
+    const w = Math.round(w0 * k), h = Math.round(h0 * k);
+    const lienzo = document.createElement('canvas');
+    lienzo.width = w; lienzo.height = h;
+    const ctx = lienzo.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(fuente, 0, 0, w, h);
+    const blob = await new Promise((ok) => lienzo.toBlob(ok, 'image/jpeg', calidad));
+    return { bytes: new Uint8Array(await blob.arrayBuffer()), blob, w, h };
+  }
+
+  async function cifrar(bytes) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const c = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, clave, bytes));
+    const todo = new Uint8Array(12 + c.length); todo.set(iv); todo.set(c, 12);
+    return todo;
+  }
+
+  const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  async function gh(token, ruta, opciones) {
+    const r = await fetch(API + ruta, {
+      ...(opciones || {}),
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+    if (r.status === 401 || r.status === 403 || r.status === 404) throw new Error('token');
+    if (!r.ok) throw new Error('GitHub respondió ' + r.status);
+    return r.json();
+  }
+
+  async function subirFotos(token) {
+    const destino = document.querySelector('input[name="destino"]:checked').value;
+    const prog = $('progreso-fotos');
+    prog.hidden = false;
+    const avance = (t) => { prog.textContent = t; };
+
+    // 1. preparar y cifrar
+    const nuevas = [], blobs = [];
+    for (let i = 0; i < archivosElegidos.length; i++) {
+      const f = archivosElegidos[i];
+      avance('Preparando foto ' + (i + 1) + ' de ' + archivosElegidos.length);
+      let grande, mini;
+      try {
+        grande = await reducir(f, 2400, 0.86);
+        mini = await reducir(f, 720, 0.78);
+      } catch (e) {
+        throw new Error('No se pudo leer "' + f.name + '". Si es una foto HEIC del iPhone, conviértala a JPG o compártala como JPG y vuelva a intentarlo');
+      }
+      const id = hex(crypto.getRandomValues(new Uint8Array(8)));
+      const hash = hex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())).slice(0, 20);
+      nuevas.push({ id, w: grande.w, h: grande.h, hash, archivo: f.name });
+      blobs.push({ ruta: 'data/p/' + id + '.t', bytes: await cifrar(mini.bytes) });
+      blobs.push({ ruta: 'data/p/' + id + '.f', bytes: await cifrar(grande.bytes) });
+      cacheMini.set(id, Promise.resolve(URL.createObjectURL(mini.blob)));
+      cacheGrande.set(id, Promise.resolve(URL.createObjectURL(grande.blob)));
+    }
+
+    // 2. índice actual del repositorio (por si alguien guardó cambios después de abrir la página)
+    avance('Revisando el álbum en GitHub');
+    const ref = await gh(token, '/git/ref/heads/main');
+    const base = await gh(token, '/git/commits/' + ref.object.sha);
+    const actual = await gh(token, '/contents/data/indice.bin?ref=' + ref.object.sha);
+    const bytesIndice = Uint8Array.from(atob(actual.content.replace(/\n/g, '')), (c) => c.charCodeAt(0));
+    const indiceRemoto = JSON.parse(new TextDecoder().decode(await descifrar(bytesIndice)));
+
+    let cap;
+    if (destino === 'existente') {
+      cap = indiceRemoto.capacitaciones.find((c) => c.id === $('cap-existente').value);
+      if (!cap) throw new Error('La capacitación elegida ya no está en el álbum. Recargue la página');
+    } else {
+      cap = { id: hex(crypto.getRandomValues(new Uint8Array(6))), titulo: $('n-titulo').value.trim(), fotos: [] };
+      if ($('n-fecha').value) { cap.fecha = $('n-fecha').value; cap.origen_fecha = 'manual'; }
+      if ($('n-fecha-fin').value && $('n-fecha-fin').value > (cap.fecha || '')) cap.fecha_fin = $('n-fecha-fin').value;
+      if ($('n-programa').value.trim()) cap.programa = $('n-programa').value.trim();
+      indiceRemoto.capacitaciones.push(cap);
+    }
+    cap.fotos = cap.fotos.concat(nuevas);
+    const hoy = new Date();
+    indiceRemoto.actualizado = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    blobs.push({ ruta: 'data/indice.bin', bytes: await cifrar(new TextEncoder().encode(JSON.stringify(indiceRemoto))) });
+
+    // 3. subir todo en un solo cambio
+    const arbol = [];
+    for (let i = 0; i < blobs.length; i++) {
+      avance('Subiendo ' + Math.min(Math.ceil((i + 1) / 2), nuevas.length) + ' de ' + plural(nuevas.length, 'foto', 'fotos'));
+      const b = await gh(token, '/git/blobs', { method: 'POST', body: JSON.stringify({ content: base64(blobs[i].bytes), encoding: 'base64' }) });
+      arbol.push({ path: blobs[i].ruta, mode: '100644', type: 'blob', sha: b.sha });
+    }
+    avance('Guardando');
+    const tree = await gh(token, '/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: base.tree.sha, tree: arbol }) });
+    const commit = await gh(token, '/git/commits', { method: 'POST', body: JSON.stringify({
+      message: 'Añade ' + plural(nuevas.length, 'foto', 'fotos') + ' a ' + cap.titulo, tree: tree.sha, parents: [ref.object.sha] }) });
+    try {
+      await gh(token, '/git/refs/heads/main', { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
+    } catch (e) {
+      if (e.message === 'GitHub respondió 422') throw new Error('Otra persona guardó cambios al mismo tiempo. Intente de nuevo');
+      throw e;
+    }
+    datos = indiceRemoto;
+    return { n: nuevas.length, cap };
+  }
+
+  $('form-fotos').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('error-fotos');
+    err.hidden = true;
+    const falla = (t, foco) => { err.textContent = t; err.hidden = false; if (foco) foco.focus(); };
+    if (!archivosElegidos.length) return falla('Elija al menos una foto.', $('archivos'));
+    const destino = document.querySelector('input[name="destino"]:checked').value;
+    if (destino === 'existente' && !$('cap-existente').value) return falla('Elija la capacitación a la que pertenecen las fotos.', $('cap-existente'));
+    if (destino === 'nueva' && !$('n-titulo').value.trim()) return falla('Escriba el nombre de la capacitación.', $('n-titulo'));
+    let token = leerToken();
+    if (!token) {
+      token = $('token-fotos').value.trim();
+      if (!token) return falla('Pegue el token de GitHub para poder subir las fotos.', $('token-fotos'));
+    }
+    const btn = $('subir-fotos');
+    btn.disabled = true;
+    try {
+      const r = await subirFotos(token);
+      try { localStorage.setItem(CLAVE_TOKEN, token); } catch (x) { /* nada */ }
+      $('dialogo-fotos').hidden = true;
+      reiniciarFiltros();
+      pintar();
+      const art = $('c-' + r.cap.id);
+      if (art) art.scrollIntoView({ block: 'start', behavior: sinMovimiento() ? 'auto' : 'smooth' });
+      avisar(plural(r.n, 'foto añadida', 'fotos añadidas') + ' a ' + r.cap.titulo + '. Para el resto del equipo aparecen en uno o dos minutos.');
+    } catch (ex) {
+      $('progreso-fotos').hidden = true;
+      if (ex.message === 'token') {
+        try { localStorage.removeItem(CLAVE_TOKEN); } catch (x) { /* nada */ }
+        $('campo-token-fotos').hidden = false;
+        falla('GitHub no aceptó el token. Revise que tenga permiso de escritura (Contents: Read and write) en el repositorio del álbum.', $('token-fotos'));
+      } else {
+        falla('No se subieron las fotos: ' + ex.message + '.');
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   // ---------- visor ----------
   let actual = null, indice = 0, foco = null;
 
@@ -618,6 +830,7 @@
   $('visor-sig').addEventListener('click', () => ir(indice + 1));
   document.addEventListener('keydown', (e) => {
     if (!$('dialogo-token').hidden && e.key === 'Escape') { $('dialogo-token').hidden = true; return; }
+    if (!$('dialogo-fotos').hidden && e.key === 'Escape' && !$('subir-fotos').disabled) { $('dialogo-fotos').hidden = true; return; }
     if ($('visor').hidden) return;
     if (e.key === 'Escape') cerrarVisor();
     else if (e.key === 'ArrowLeft') ir(indice - 1);

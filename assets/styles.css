@@ -230,6 +230,7 @@ button, input, select { font: inherit; color: inherit; }
   padding: 1.5rem 0;
   border-bottom: 1px solid var(--gris-20);
 }
+.cap { scroll-margin-top: calc(var(--alto-cabecera, 9rem) + 1rem); }
 .cap__fecha { line-height: 1; padding-top: .15rem; }
 .cap__dia {
   display: block;
@@ -456,6 +457,39 @@ button, input, select { font: inherit; color: inherit; }
 .visor__tira button img { width: 100%; height: 100%; object-fit: cover; }
 .visor__tira button[aria-current="true"] { border-color: var(--blanco); opacity: 1; }
 
+/* Añadir fotos */
+.boton--chico { padding: .5rem 1rem; font-size: .88rem; }
+.cabecera__fila .boton--chico + .salir { margin-left: -1rem; }
+.dialogo__caja--ancha { max-width: 40rem; max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); overflow-y: auto; }
+.soltar {
+  display: grid;
+  place-items: center;
+  min-height: 7rem;
+  border: 2px dashed var(--gris-40);
+  background: var(--fondo-suave);
+  cursor: pointer;
+  text-align: center;
+  padding: 1rem;
+  font-weight: 600;
+  margin-bottom: .75rem;
+  transition: border-color .2s, background .2s;
+}
+.soltar:hover, .soltar.encima { border-color: var(--rojo); background: #FBF4F4; }
+.soltar input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.soltar:focus-within { outline: 3px solid var(--dorado); outline-offset: 2px; }
+.previas { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: .75rem; }
+.previas img { width: 4.2rem; height: 3.2rem; object-fit: cover; background: var(--fondo-suave); }
+.destino { border: 0; padding: 0; margin: .5rem 0 .75rem; display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.destino legend { font-weight: 700; margin-bottom: .4rem; padding: 0; }
+.opcion { display: inline-flex !important; align-items: center; gap: .4rem; font-weight: 500 !important; margin: 0 !important; }
+.opcion input { width: auto !important; accent-color: var(--rojo); }
+.dialogo__caja select { width: 100%; border: 2px solid var(--negro); padding: .6rem .7rem; background: var(--blanco); }
+.campos-nueva { display: grid; grid-template-columns: 1fr 1fr; gap: .2rem .8rem; }
+.campos-nueva > div { min-width: 0; }
+.campos-nueva .ancho { grid-column: 1 / -1; }
+.ayuda { font-size: .82rem !important; margin-top: .4rem !important; }
+.progreso { color: var(--negro) !important; font-weight: 600; margin-top: .8rem !important; }
+
 /* Animaciones */
 .acceso__trazo polyline { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trazo 1.6s cubic-bezier(.65,0,.35,1) .2s forwards; }
 @keyframes trazo { to { stroke-dashoffset: 0; } }
@@ -512,7 +546,9 @@ button, input, select { font: inherit; color: inherit; }
   .resumen { display: none; }
   .cabecera__fila { flex-wrap: wrap; row-gap: .6rem; }
   .cabecera__fila .salir + .salir { margin-left: -.5rem; }
-  #editar { margin-left: auto; }
+  #anadir { margin-left: auto; }
+  .cabecera__fila .boton--chico + .salir { margin-left: -.5rem; }
+  .campos-nueva { grid-template-columns: 1fr; }
   .cabecera__titulo { order: 3; flex-basis: 100%; border-left: 0; padding-left: 0; }
   .edicion { grid-template-columns: minmax(0, 1fr); }
   .edicion input[type="date"] { -webkit-appearance: none; appearance: none; }
