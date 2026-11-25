@@ -19,11 +19,7 @@
   "Escuela de Liderazgo Transformador": {
     "programa": "Escuela de liderazgo"
   },
-  "Escuela de Liderazgo Transformador - sesión por confirmar": {
-    "programa": "Escuela de liderazgo"
-  },
   "Plan de Emergencia Institucional - Brigada de emergencia": {
-    "fecha": null,
     "programa": "Programa de Plan de Emergencia"
   },
   "Plan de Emergencia Institucional - Centro médico": {
@@ -33,14 +29,9 @@
     "programa": "Programa de Plan de Emergencia"
   },
   "Plan de Emergencia Institucional - Coordinadores y líderes de evacuación": {
-    "fecha": null,
-    "programa": "Programa de Plan de Emergencia"
-  },
-  "Plan de Emergencia Institucional - Coordinadores y líderes de evacuación Grupo A": {
     "programa": "Programa de Plan de Emergencia"
   },
   "Plan de Emergencia Institucional - Manejo de incidentes": {
-    "fecha": null,
     "programa": "Programa de Plan de Emergencia"
   },
   "Plan de Emergencia Institucional - Mantenimiento": {
