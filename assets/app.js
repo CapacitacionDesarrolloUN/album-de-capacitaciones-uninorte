@@ -69,9 +69,16 @@
     try { sessionStorage.setItem(CLAVE_SESION, b64.a(await crypto.subtle.exportKey('raw', k))); } catch (e) { /* sin almacenamiento */ }
   }
 
-  function mostrarAlbum() {
+  const sinMovimiento = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  async function mostrarAlbum(animar) {
+    if (animar && !sinMovimiento()) {
+      $('acceso').classList.add('acceso--sale');
+      await new Promise((r) => setTimeout(r, 520));
+    }
     $('acceso').hidden = true;
     $('album').hidden = false;
+    if (animar) $('album').classList.add('album--entra');
     prepararFiltros();
     pintar();
     medirCabecera();
@@ -95,12 +102,14 @@
     btn.textContent = 'Abriendo el álbum';
     try {
       await entrar($('clave').value);
-      mostrarAlbum();
+      await mostrarAlbum(true);
     } catch (ex) {
       err.textContent = ex.message === 'clave'
         ? 'La contraseña no es correcta. Revise mayúsculas y minúsculas.'
         : 'No se pudo abrir el álbum: ' + ex.message + '. Revise la conexión e intente de nuevo.';
       err.hidden = false;
+      const campo = document.querySelector('.campo');
+      campo.classList.remove('campo--error'); void campo.offsetWidth; campo.classList.add('campo--error');
       $('clave').select();
     } finally {
       btn.disabled = false;
@@ -206,7 +215,23 @@
   }
 
   // ---------- pintar ----------
-  let observadorFotos, observadorMeses;
+  let observadorFotos, observadorMeses, observadorRevelar;
+
+  function revelar(cont) {
+    if (observadorRevelar) observadorRevelar.disconnect();
+    const items = cont.querySelectorAll('.anio__numero, .mes, .cap');
+    if (sinMovimiento() || !('IntersectionObserver' in window)) { items.forEach((n) => n.classList.add('visible')); return; }
+    observadorRevelar = new IntersectionObserver((ents) => {
+      let k = 0;
+      ents.forEach((en) => {
+        if (!en.isIntersecting) return;
+        observadorRevelar.unobserve(en.target);
+        en.target.style.transitionDelay = (k++ * 60) + 'ms';
+        en.target.classList.add('visible');
+      });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    items.forEach((n) => { n.classList.add('revelar'); observadorRevelar.observe(n); });
+  }
 
   function pintar() {
     const { lista, orden } = filtradas();
@@ -239,6 +264,7 @@
       sec.append(el('p', { class: 'anio__cuenta' }, plural(lista.length, 'capacitación', 'capacitaciones') + ' en orden alfabético'));
       lista.forEach((c) => sec.append(tarjeta(c)));
       cont.append(sec);
+      if (!editando) revelar(cont);
       return;
     }
 
@@ -281,6 +307,7 @@
       cont.append(sec);
     }
 
+    if (!editando) revelar(cont);
     observadorMeses = new IntersectionObserver((ents) => {
       ents.forEach((en) => {
         if (!en.isIntersecting) return;
@@ -537,7 +564,9 @@
     if (t) t.scrollIntoView({ block: 'nearest', inline: 'center' });
     const img = $('visor-img');
     img.alt = 'Foto ' + (indice + 1) + ' de ' + actual.titulo;
+    img.classList.add('cambiando');
     try { img.src = await urlFoto(f.id, 't'); } catch (e) { /* sigue */ }
+    img.onload = () => img.classList.remove('cambiando');
     const pedido = indice;
     try {
       const u = await urlFoto(f.id, 'f');
@@ -652,7 +681,7 @@
     let guardada = null;
     try { guardada = sessionStorage.getItem(CLAVE_SESION); } catch (e) { /* nada */ }
     if (guardada) {
-      try { await entrar(null, guardada); mostrarAlbum(); return; } catch (e) { try { sessionStorage.removeItem(CLAVE_SESION); } catch (x) { /* nada */ } }
+      try { await entrar(null, guardada); await mostrarAlbum(false); return; } catch (e) { try { sessionStorage.removeItem(CLAVE_SESION); } catch (x) { /* nada */ } }
     }
     $('clave').focus();
   })();

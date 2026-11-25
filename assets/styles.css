@@ -277,8 +277,10 @@ button, input, select { font: inherit; color: inherit; }
   opacity: 0;
   transition: opacity .25s ease;
 }
-.foto img.lista-img { opacity: 1; }
-.foto:hover img { filter: brightness(.92); }
+.foto img.lista-img { opacity: 1; animation: foto-entra .6s cubic-bezier(.2,.7,.2,1) both; }
+.foto img { transition: opacity .25s ease, transform .5s cubic-bezier(.2,.7,.2,1), filter .3s ease; }
+.foto:hover img, .foto:focus-visible img { transform: scale(1.045); filter: brightness(.94); }
+@keyframes foto-entra { from { transform: scale(1.06); } to { transform: scale(1); } }
 .foto__mas {
   position: absolute;
   inset: 0;
@@ -448,6 +450,43 @@ button, input, select { font: inherit; color: inherit; }
 .visor__tira button img { width: 100%; height: 100%; object-fit: cover; }
 .visor__tira button[aria-current="true"] { border-color: var(--blanco); opacity: 1; }
 
+/* Animaciones */
+.acceso__trazo polyline { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trazo 1.6s cubic-bezier(.65,0,.35,1) .2s forwards; }
+@keyframes trazo { to { stroke-dashoffset: 0; } }
+.acceso__lema { animation: sube .7s ease 1.2s both; }
+.acceso__form > * { animation: sube .7s cubic-bezier(.2,.7,.2,1) both; }
+.acceso__form > :nth-child(1) { animation-delay: .1s; }
+.acceso__form > :nth-child(2) { animation-delay: .2s; }
+.acceso__form > :nth-child(3) { animation-delay: .3s; }
+.acceso__form > :nth-child(4) { animation-delay: .4s; }
+@keyframes sube { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.acceso--sale .acceso__panel { animation: panel-sale .55s cubic-bezier(.65,0,.35,1) forwards; }
+.acceso--sale .acceso__form { animation: desvanece .35s ease forwards; }
+@keyframes panel-sale { to { transform: translateX(-100%); } }
+@keyframes desvanece { to { opacity: 0; transform: translateY(-10px); } }
+.campo--error { animation: tiembla .4s ease; }
+@keyframes tiembla { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.album--entra .cabecera { animation: baja .5s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes baja { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+.revelar { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1); }
+.revelar.visible { opacity: 1; transform: none; }
+.anio__numero.revelar { transform: translateY(.35em); clip-path: inset(0 0 100% 0); transition: transform .8s cubic-bezier(.2,.7,.2,1), clip-path .8s cubic-bezier(.2,.7,.2,1), opacity .2s; }
+.anio__numero.revelar.visible { transform: none; clip-path: inset(0 0 -10% 0); }
+.mes { position: relative; border-bottom-color: transparent; }
+.mes::after { content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--negro); transform: scaleX(0); transform-origin: left; transition: transform .8s cubic-bezier(.65,0,.35,1) .1s; }
+.mes.visible::after { transform: scaleX(1); }
+.mes.revelar { transform: none; }
+.visor:not([hidden]) { animation: desvanece-in .25s ease both; }
+@keyframes desvanece-in { from { opacity: 0; } to { opacity: 1; } }
+.visor__escena img { transition: opacity .25s ease; }
+.visor__escena img.cambiando { opacity: .25; }
+.barra-edicion:not([hidden]) { animation: barra-sube .35s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes barra-sube { from { transform: translateY(100%); } to { transform: none; } }
+.dialogo:not([hidden]) .dialogo__caja { animation: sube .3s cubic-bezier(.2,.7,.2,1) both; }
+.aviso:not([hidden]) { animation: aviso-in .3s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes aviso-in { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+.cap--cambiada .cap__dia { color: var(--rojo); transition: color .3s; }
+
 /* Responsive */
 @media (max-width: 900px) {
   .cuerpo { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -496,5 +535,8 @@ button, input, select { font: inherit; color: inherit; }
   .aviso { left: 1rem; right: 1rem; transform: none; max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; scroll-behavior: auto !important; }
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  .revelar, .anio__numero.revelar { opacity: 1; transform: none; clip-path: none; }
+  .mes::after { transform: scaleX(1); }
+  .acceso__trazo polyline { stroke-dashoffset: 0; }
 }
