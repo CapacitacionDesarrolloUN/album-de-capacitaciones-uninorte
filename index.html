@@ -44,6 +44,7 @@
         <h1>Álbum de capacitaciones</h1>
         <p id="resumen" class="resumen"></p>
       </div>
+      <button type="button" class="salir" id="editar" aria-pressed="false">Editar datos</button>
       <button type="button" class="salir" id="salir">Salir</button>
     </div>
     <div class="filtros" role="search">
@@ -75,6 +76,31 @@
     <main id="lista" class="lista" tabindex="-1"></main>
   </div>
 </div>
+
+<div id="barra-edicion" class="barra-edicion" hidden>
+  <p id="barra-texto">Cambie el nombre, la fecha o el programa de cualquier capacitación. Los cambios se guardan para todo el equipo.</p>
+  <div class="barra-edicion__acciones">
+    <button type="button" class="salir" id="descartar">Descartar cambios</button>
+    <button type="button" class="boton" id="guardar" disabled>Guardar cambios</button>
+  </div>
+</div>
+
+<div id="dialogo-token" class="dialogo" role="dialog" aria-modal="true" aria-labelledby="dialogo-token-titulo" hidden>
+  <form class="dialogo__caja" id="form-token">
+    <h2 id="dialogo-token-titulo">Conectar con GitHub para guardar</h2>
+    <p>Los cambios se guardan en el repositorio del álbum. Pegue un token de GitHub con permiso de escritura en ese repositorio (Contents: Read and write). Queda guardado solo en este navegador.</p>
+    <p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crear un token en GitHub</a></p>
+    <label for="token">Token de GitHub</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false" required>
+    <p id="error-token" class="error" role="alert" hidden></p>
+    <div class="dialogo__acciones">
+      <button type="button" class="salir" id="cancelar-token">Cancelar</button>
+      <button type="submit" class="boton">Guardar cambios</button>
+    </div>
+  </form>
+</div>
+
+<p id="aviso" class="aviso" role="status" hidden></p>
 
 <!-- Visor -->
 <div id="visor" class="visor" role="dialog" aria-modal="true" aria-labelledby="visor-titulo" hidden>

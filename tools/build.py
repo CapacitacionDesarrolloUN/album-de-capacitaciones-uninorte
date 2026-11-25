@@ -28,6 +28,8 @@ ITER = 310000
 EXT = {'.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.tif', '.tiff', '.bmp'}
 THUMB = 720
 FULL = 2400
+MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+ANIO = None  # año para fechas escritas como texto ("10 de abril")
 
 
 def norm(s):
@@ -68,6 +70,17 @@ def to_date(v):
     if isinstance(v, (int, float)) and 20000 < v < 80000:  # serial de Excel
         return (dt.date(1899, 12, 30) + dt.timedelta(days=int(v))).isoformat()
     s = str(v).strip()
+    # texto como "8, 15 y 22 de abril": primer día escrito antes del primer mes
+    t = norm(s)
+    m = re.search(r'\b(' + '|'.join(MESES) + r')\b', t)
+    if m and ANIO:
+        d = re.search(r'\b(\d{1,2})\b', t[:m.start()])
+        y = re.search(r'\b(20\d\d)\b', t[m.end():m.end() + 12])
+        if d:
+            try:
+                return dt.date(int(y.group(1)) if y else ANIO, MESES.index(m.group(1)) + 1, int(d.group(1))).isoformat()
+            except ValueError:
+                pass
     for f in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d/%m/%y', '%Y/%m/%d'):
         try:
             return dt.datetime.strptime(s[:10], f).date().isoformat()
@@ -76,12 +89,12 @@ def to_date(v):
     return None
 
 
-def read_plan(path, cols):
+def read_plan(path, cols, hoja=None):
     """Devuelve una lista de filas {nombre, fecha, programa, ...} del Plan de Formación."""
     import openpyxl
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     rows = []
-    for ws in wb.worksheets:
+    for ws in ([wb[hoja]] if hoja else wb.worksheets):
         it = ws.iter_rows(values_only=True)
         header, hi = None, 0
         for i, r in enumerate(it):
@@ -106,7 +119,7 @@ def read_plan(path, cols):
             nombre = r[ix['nombre']] if ix['nombre'] < len(r) else None
             if not nombre or not str(nombre).strip():
                 continue
-            row = {'nombre': str(nombre).strip(), 'hoja': ws.title}
+            row = {'nombre': re.sub(r'\s+', ' ', str(nombre).replace('\xa0', ' ')).strip(), 'hoja': ws.title}
             for k in ('fecha', 'fecha_fin', 'programa', 'modalidad', 'facilitador', 'lugar'):
                 j = ix.get(k)
                 if j is not None and j < len(r):
@@ -115,12 +128,12 @@ def read_plan(path, cols):
             row['fecha_fin'] = to_date(row.get('fecha_fin'))
             for k in ('programa', 'modalidad', 'facilitador', 'lugar'):
                 if row.get(k) is not None:
-                    row[k] = str(row[k]).strip()
+                    row[k] = re.sub(r'\s+', ' ', str(row[k]).replace('\xa0', ' ')).strip()
             rows.append(row)
     return rows
 
 
-def match(title, plan, cutoff):
+def match(title, plan, cutoff, exacto=False):
     if not plan:
         return None, 0
     t = norm(title)
@@ -128,6 +141,8 @@ def match(title, plan, cutoff):
     exact = [r for r, n in zip(plan, names) if n == t]
     cands = exact
     score = 1.0
+    if not exact and exacto:
+        return None, 0
     if not exact:
         best = difflib.get_close_matches(t, list(set(names)), n=1, cutoff=cutoff)
         if not best:
@@ -185,9 +200,14 @@ def main():
     ap.add_argument('--col-modalidad', default='modalidad')
     ap.add_argument('--col-facilitador', default='facilitador')
     ap.add_argument('--col-lugar', default='lugar')
+    ap.add_argument('--hoja', help='hoja del Excel donde está el Plan (por defecto, todas)')
+    ap.add_argument('--anio', type=int, default=dt.date.today().year, help='año de las fechas escritas como texto')
+    ap.add_argument('--solo-exacto', action='store_true', help='no buscar nombres parecidos, solo iguales')
     ap.add_argument('--reporte', default='reporte-cruce.csv')
     a = ap.parse_args()
 
+    global ANIO
+    ANIO = a.anio
     pw = os.environ.get('ALBUM_PASSWORD')
     if not pw:
         sys.exit('Falta la variable ALBUM_PASSWORD')
@@ -218,7 +238,7 @@ def main():
     cols = {'nombre': norm(a.col_nombre), 'fecha': norm(a.col_fecha), 'fecha_fin': norm(a.col_fecha_fin),
             'programa': norm(a.col_programa), 'modalidad': norm(a.col_modalidad),
             'facilitador': norm(a.col_facilitador), 'lugar': norm(a.col_lugar)}
-    plan = read_plan(a.plan, cols) if a.plan else []
+    plan = read_plan(a.plan, cols, a.hoja) if a.plan else []
     if a.plan:
         print(f'Plan de Formación: {len(plan)} actividades leídas')
 
@@ -233,7 +253,7 @@ def main():
     for f in files:
         rel = f.relative_to(root)
         if len(rel.parts) > 1:
-            title = clean_title(rel.parts[0])
+            title = re.sub(r'\s+', ' ', rel.parts[0]).strip()
         else:
             base = clean_title(f.stem)
             paren = re.search(r'[\(\[]\s*\d+\s*[\)\]]\s*$', f.stem)
@@ -247,10 +267,11 @@ def main():
         k = norm(title)
         c = by_key.get(k) or next((x for x in man['capacitaciones'] if norm(x.get('titulo_foto', '')) == k), None)
         if not c:
-            row, score = match(title, plan, a.cutoff)
+            row, score = match(title, plan, a.cutoff, a.solo_exacto)
             c = {'id': secrets.token_hex(6), 'titulo': title, 'fecha': None, 'fotos': []}
             if row:
-                c['titulo_foto'] = title
+                if norm(row['nombre']) != norm(title):
+                    c['titulo_foto'] = title
                 c['titulo'] = row['nombre']
                 c['fecha'] = row.get('fecha')
                 for kk in ('fecha_fin', 'programa', 'modalidad', 'facilitador', 'lugar'):

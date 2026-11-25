@@ -20,7 +20,7 @@
     const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(contrasena), 'PBKDF2', false, ['deriveKey']);
     return crypto.subtle.deriveKey(
       { name: 'PBKDF2', hash: 'SHA-256', salt: b64.de(config.salt), iterations: config.iterations },
-      base, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+      base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
   }
 
   async function descifrar(buf) {
@@ -52,7 +52,7 @@
     const config = await (await traer('data/config.json')).json();
     let k;
     if (guardada) {
-      k = await crypto.subtle.importKey('raw', b64.de(guardada), 'AES-GCM', true, ['decrypt']);
+      k = await crypto.subtle.importKey('raw', b64.de(guardada), 'AES-GCM', true, ['encrypt', 'decrypt']);
     } else {
       k = await derivar(contrasena, config);
     }
@@ -108,6 +108,7 @@
     }
   });
 
+  addEventListener('beforeunload', (e) => { if (pendientes.size) { e.preventDefault(); e.returnValue = ''; } });
   $('salir').addEventListener('click', () => {
     try { sessionStorage.removeItem(CLAVE_SESION); } catch (e) { /* nada */ }
     location.reload();
@@ -153,6 +154,13 @@
 
   // ---------- filtros ----------
   function prepararFiltros() {
+    llenarFiltros();
+    let t;
+    $('buscar').addEventListener('input', () => { clearTimeout(t); t = setTimeout(pintar, 120); });
+    ['f-anio', 'f-programa', 'f-orden'].forEach((id) => $(id).addEventListener('change', pintar));
+  }
+
+  function llenarFiltros() {
     const caps = datos.capacitaciones;
     const anios = [...new Set(caps.filter((c) => c.fecha).map((c) => c.fecha.slice(0, 4)))].sort().reverse();
     const sel = $('f-anio');
@@ -160,8 +168,8 @@
     if (caps.some((c) => !c.fecha)) sel.append(el('option', { value: 'sin' }, 'Sin fecha'));
 
     const progs = [...new Set(caps.map((c) => c.programa).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    $('filtro-programa').hidden = progs.length < 2;
     if (progs.length > 1) {
-      $('filtro-programa').hidden = false;
       progs.forEach((p) => $('f-programa').append(el('option', { value: p }, p)));
     }
 
@@ -169,10 +177,6 @@
     let res = plural(caps.length, 'capacitación', 'capacitaciones') + ', ' + plural(fotos, 'foto', 'fotos');
     if (datos.actualizado) { const u = partes(datos.actualizado); res += '. Actualizado el ' + u.d + ' de ' + MESES[u.m - 1] + ' de ' + u.a; }
     $('resumen').textContent = res;
-
-    let t;
-    $('buscar').addEventListener('input', () => { clearTimeout(t); t = setTimeout(pintar, 120); });
-    ['f-anio', 'f-programa', 'f-orden'].forEach((id) => $(id).addEventListener('change', pintar));
   }
 
   function filtradas() {
@@ -255,7 +259,7 @@
       const sec = el('section', { class: 'anio', 'aria-labelledby': 'a-' + a });
       sec.append(el('h2', { class: 'anio__numero' + (a === 'sin' ? ' anio__numero--sin' : ''), id: 'a-' + a }, a === 'sin' ? 'Sin fecha' : a));
       sec.append(el('p', { class: 'anio__cuenta' }, a === 'sin'
-        ? plural(total, 'capacitación', 'capacitaciones') + ' que no se encontraron en el Plan de Formación'
+        ? plural(total, 'capacitación', 'capacitaciones') + ' sin fecha confirmada. Use "Editar datos" para agregarla.'
         : plural(total, 'capacitación', 'capacitaciones')));
       nav.append(el('h2', {}, a === 'sin' ? 'Sin fecha' : a));
 
@@ -318,12 +322,186 @@
     const info = el('div', { class: 'cap__info' },
       el('h3', {}, c.titulo),
       el('p', { class: 'cap__meta' },
-        fechaLarga(c),
-        c.programa ? ['. ', el('span', { class: 'cap__programa' }, c.programa)] : null,
-        m.length ? '. ' + m.join('. ') : null),
+        c.fecha ? fechaLarga(c) + (c.programa || m.length ? '. ' : '') : null,
+        c.programa ? el('span', { class: 'cap__programa' }, c.programa) : null,
+        m.length ? (c.programa ? '. ' : '') + m.join('. ') : null),
       c.origen_fecha === 'foto' ? el('p', { class: 'cap__aviso' }, 'Fecha tomada de la foto; no aparece en el Plan de Formación.') : null,
+      editando ? formularioEdicion(c) : null,
       mosaico);
-    return el('article', { class: 'cap', id: 'c-' + c.id }, bloqueFecha(c), info);
+    return el('article', { class: 'cap' + (pendientes.has(c.id) ? ' cap--cambiada' : ''), id: 'c-' + c.id }, bloqueFecha(c), info);
+  }
+
+  // ---------- edición ----------
+  const REPO = 'CapacitacionDesarrolloUN/album-de-capacitaciones-uninorte';
+  const CLAVE_TOKEN = 'album-cyd-token-github';
+  const CAMPOS = [
+    ['titulo', 'Nombre de la capacitación', 'text'],
+    ['fecha', 'Fecha', 'date'],
+    ['fecha_fin', 'Fecha final (si fue de varios días)', 'date'],
+    ['programa', 'Programa', 'text'],
+  ];
+  let editando = false;
+  const pendientes = new Map();
+
+  function valor(c, campo) {
+    const p = pendientes.get(c.id);
+    return p && campo in p ? p[campo] : (c[campo] || '');
+  }
+
+  function formularioEdicion(c) {
+    const caja = el('div', { class: 'edicion' });
+    const programas = [...new Set(datos.capacitaciones.map((x) => x.programa).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    if (!document.getElementById('lista-programas')) {
+      document.body.append(el('datalist', { id: 'lista-programas' }, programas.map((p) => el('option', { value: p }))));
+    }
+    CAMPOS.forEach(([campo, etiqueta, tipo]) => {
+      const id = 'e-' + campo + '-' + c.id;
+      const inp = el('input', { id, type: tipo, value: valor(c, campo), list: campo === 'programa' ? 'lista-programas' : null, required: campo === 'titulo' });
+      inp.addEventListener('input', () => {
+        const p = pendientes.get(c.id) || {};
+        const v = inp.value.trim();
+        if (v === (c[campo] || '')) delete p[campo]; else p[campo] = v;
+        if (Object.keys(p).length) pendientes.set(c.id, p); else pendientes.delete(c.id);
+        inp.closest('.cap').classList.toggle('cap--cambiada', pendientes.has(c.id));
+        actualizarBarra();
+      });
+      caja.append(el('div', {}, el('label', { for: id }, etiqueta), inp));
+    });
+    return caja;
+  }
+
+  function actualizarBarra() {
+    const n = pendientes.size;
+    $('guardar').disabled = n === 0;
+    $('barra-texto').textContent = n
+      ? plural(n, 'capacitación modificada', 'capacitaciones modificadas') + ' sin guardar.'
+      : 'Cambie el nombre, la fecha o el programa de cualquier capacitación. Los cambios se guardan para todo el equipo.';
+  }
+
+  function avisar(texto, error) {
+    const a = $('aviso');
+    a.textContent = texto;
+    a.classList.toggle('aviso--error', !!error);
+    a.hidden = false;
+    clearTimeout(avisar.t);
+    avisar.t = setTimeout(() => { a.hidden = true; }, error ? 9000 : 6000);
+  }
+
+  function modoEdicion(activo) {
+    editando = activo;
+    $('editar').setAttribute('aria-pressed', String(activo));
+    $('editar').textContent = activo ? 'Terminar edición' : 'Editar datos';
+    $('barra-edicion').hidden = !activo;
+    $('album').classList.toggle('album--editando', activo);
+    actualizarBarra();
+    pintar();
+  }
+
+  $('editar').addEventListener('click', () => {
+    if (editando && pendientes.size && !confirmarSalida()) return;
+    if (editando) pendientes.clear();
+    modoEdicion(!editando);
+  });
+  function confirmarSalida() {
+    avisar('Tiene cambios sin guardar. Guárdelos o use "Descartar cambios".', true);
+    return false;
+  }
+  $('descartar').addEventListener('click', () => { pendientes.clear(); modoEdicion(false); avisar('Cambios descartados.'); });
+
+  function base64(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+
+  async function subirIndice(nuevo, token) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const cif = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, clave, new TextEncoder().encode(JSON.stringify(nuevo))));
+    const todo = new Uint8Array(12 + cif.length); todo.set(iv); todo.set(cif, 12);
+    const url = 'https://api.github.com/repos/' + REPO + '/contents/data/indice.bin';
+    const cab = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' };
+    const r1 = await fetch(url + '?ref=main', { headers: cab, cache: 'no-store' });
+    if (r1.status === 401 || r1.status === 403 || r1.status === 404) throw new Error('token');
+    if (!r1.ok) throw new Error('GitHub respondió ' + r1.status);
+    const { sha } = await r1.json();
+    const r2 = await fetch(url, {
+      method: 'PUT',
+      headers: { ...cab, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Actualiza datos del álbum (' + plural(pendientes.size, 'capacitación', 'capacitaciones') + ')', content: base64(todo), sha, branch: 'main' }),
+    });
+    if (r2.status === 401 || r2.status === 403 || r2.status === 404) throw new Error('token');
+    if (r2.status === 409) throw new Error('Otra persona guardó cambios al mismo tiempo. Recargue la página e intente de nuevo');
+    if (!r2.ok) throw new Error('GitHub respondió ' + r2.status);
+  }
+
+  async function guardar(token) {
+    const nuevo = JSON.parse(JSON.stringify(datos));
+    nuevo.capacitaciones.forEach((c) => {
+      const p = pendientes.get(c.id);
+      if (!p) return;
+      for (const [k, v] of Object.entries(p)) {
+        if (k === 'titulo' && !v) continue;
+        if (v) c[k] = v; else delete c[k];
+        if (k === 'fecha') c.origen_fecha = v ? 'manual' : undefined;
+      }
+      if (c.fecha_fin && c.fecha && c.fecha_fin < c.fecha) delete c.fecha_fin;
+    });
+    const hoy = new Date();
+    nuevo.actualizado = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    await subirIndice(nuevo, token);
+    datos = nuevo;
+  }
+
+  async function intentarGuardar(token) {
+    const btn = $('guardar');
+    btn.disabled = true; btn.textContent = 'Guardando';
+    try {
+      await guardar(token);
+      try { localStorage.setItem(CLAVE_TOKEN, token); } catch (e) { /* nada */ }
+      const n = pendientes.size;
+      pendientes.clear();
+      $('dialogo-token').hidden = true;
+      reiniciarFiltros();
+      modoEdicion(false);
+      avisar(plural(n, 'capacitación guardada', 'capacitaciones guardadas') + '. La página publicada se actualiza en uno o dos minutos.');
+      return true;
+    } catch (e) {
+      if (e.message === 'token') {
+        try { localStorage.removeItem(CLAVE_TOKEN); } catch (x) { /* nada */ }
+        $('error-token').textContent = 'GitHub no aceptó el token. Revise que tenga permiso de escritura en el repositorio del álbum.';
+        $('error-token').hidden = false;
+        $('dialogo-token').hidden = false;
+        $('token').focus();
+      } else {
+        avisar('No se guardó: ' + e.message + '.', true);
+      }
+      return false;
+    } finally {
+      btn.textContent = 'Guardar cambios';
+      btn.disabled = pendientes.size === 0;
+    }
+  }
+
+  $('guardar').addEventListener('click', () => {
+    const inval = [...document.querySelectorAll('.edicion input:invalid')];
+    if (inval.length) { inval[0].focus(); avisar('El nombre de la capacitación no puede quedar vacío.', true); return; }
+    let token = null;
+    try { token = localStorage.getItem(CLAVE_TOKEN); } catch (e) { /* nada */ }
+    if (token) intentarGuardar(token);
+    else { $('error-token').hidden = true; $('dialogo-token').hidden = false; $('token').focus(); }
+  });
+  $('cancelar-token').addEventListener('click', () => { $('dialogo-token').hidden = true; $('guardar').focus(); });
+  $('form-token').addEventListener('submit', (e) => { e.preventDefault(); intentarGuardar($('token').value.trim()); });
+
+  function reiniciarFiltros() {
+    const anio = $('f-anio'), prog = $('f-programa');
+    const va = anio.value, vp = prog.value;
+    anio.replaceChildren(el('option', { value: '' }, 'Todos'));
+    prog.replaceChildren(el('option', { value: '' }, 'Todos'));
+    const dl = document.getElementById('lista-programas'); if (dl) dl.remove();
+    llenarFiltros();
+    if ([...anio.options].some((o) => o.value === va)) anio.value = va;
+    if ([...prog.options].some((o) => o.value === vp)) prog.value = vp;
   }
 
   // ---------- visor ----------
@@ -410,6 +588,7 @@
   $('visor-ant').addEventListener('click', () => ir(indice - 1));
   $('visor-sig').addEventListener('click', () => ir(indice + 1));
   document.addEventListener('keydown', (e) => {
+    if (!$('dialogo-token').hidden && e.key === 'Escape') { $('dialogo-token').hidden = true; return; }
     if ($('visor').hidden) return;
     if (e.key === 'Escape') cerrarVisor();
     else if (e.key === 'ArrowLeft') ir(indice - 1);

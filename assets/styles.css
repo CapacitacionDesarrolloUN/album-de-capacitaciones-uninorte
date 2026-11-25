@@ -295,6 +295,81 @@ button, input, select { font: inherit; color: inherit; }
 .vacio p { color: var(--gris-70); margin: 0; }
 .cargando { padding: 4rem 0; color: var(--gris-70); }
 
+/* Edición */
+.cabecera__fila .salir + .salir { margin-left: -1rem; }
+.salir[aria-pressed="true"] { background: var(--negro); color: var(--blanco); border-color: var(--negro); }
+.edicion {
+  margin-top: .9rem;
+  padding: .9rem 1rem 1rem;
+  background: var(--fondo-suave);
+  border-left: 3px solid var(--dorado);
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) repeat(2, minmax(0, 1fr)) minmax(0, 1.4fr);
+  gap: .6rem .8rem;
+}
+.edicion > div { min-width: 0; }
+.edicion label { display: block; font-size: .75rem; font-weight: 600; color: var(--gris-70); margin-bottom: .15rem; }
+.edicion input {
+  width: 100%;
+  border: 1px solid var(--gris-40);
+  background: var(--blanco);
+  padding: .45rem .55rem;
+  font-size: .9rem;
+  min-height: 2.3rem;
+}
+.edicion input:focus { border-color: var(--negro); outline: none; }
+.cap--cambiada .edicion { border-left-color: var(--rojo); }
+.cap__cambio { font-size: .78rem; font-weight: 700; color: var(--rojo); margin: .35rem 0 0; }
+.barra-edicion {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  background: var(--negro);
+  color: var(--blanco);
+  padding: .85rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.barra-edicion p { margin: 0; font-size: .9rem; max-width: 60ch; }
+.barra-edicion__acciones { display: flex; gap: .6rem; }
+.barra-edicion .salir { color: var(--blanco); border-color: #666; }
+.barra-edicion .boton { padding: .55rem 1.1rem; }
+.album--editando .cuerpo { padding-bottom: 8rem; }
+.dialogo {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(21, 21, 21, .55);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.dialogo__caja { background: var(--blanco); max-width: 34rem; width: 100%; padding: 1.75rem; border-top: 6px solid var(--rojo); }
+.dialogo__caja h2 { margin: 0 0 .6rem; font-size: 1.25rem; font-weight: 800; }
+.dialogo__caja p { margin: 0 0 .8rem; color: var(--gris-70); font-size: .92rem; }
+.dialogo__caja a { color: var(--rojo); font-weight: 600; }
+.dialogo__caja label { display: block; font-weight: 600; margin: .4rem 0 .3rem; }
+.dialogo__caja input { width: 100%; border: 2px solid var(--negro); padding: .65rem .75rem; }
+.dialogo__acciones { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.2rem; }
+.aviso {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  z-index: 70;
+  background: var(--negro);
+  color: var(--blanco);
+  padding: .8rem 1.2rem;
+  margin: 0;
+  font-size: .92rem;
+  max-width: calc(100% - 2rem);
+  border-left: 4px solid var(--dorado);
+}
+.aviso--error { border-left-color: var(--rojo); }
+
 /* Visor */
 .visor {
   position: fixed;
@@ -390,16 +465,27 @@ button, input, select { font: inherit; color: inherit; }
   .cabecera__titulo { padding-left: 1rem; }
   .cabecera h1 { font-size: 1.05rem; }
   .resumen { display: none; }
+  .cabecera__fila { flex-wrap: wrap; row-gap: .6rem; }
+  .cabecera__fila .salir + .salir { margin-left: -.5rem; }
+  #editar { margin-left: auto; }
+  .cabecera__titulo { order: 3; flex-basis: 100%; border-left: 0; padding-left: 0; }
+  .edicion { grid-template-columns: minmax(0, 1fr); }
+  .edicion input[type="date"] { -webkit-appearance: none; appearance: none; }
+  .barra-edicion { padding: .75rem 1rem; }
+  .barra-edicion p { display: none; }
+  .barra-edicion__acciones { width: 100%; }
+  .barra-edicion__acciones button { flex: 1 1 0; min-width: 0; padding-left: .5rem; padding-right: .5rem; }
   .filtros { padding: 0 1rem .9rem; display: grid; grid-template-columns: 1fr 1fr; }
   .filtro--buscar { grid-column: 1 / -1; }
   .filtro select, .filtro input { width: 100%; }
   .cuerpo { padding: 0 1rem 4rem; }
   .mes { scroll-margin-top: 1rem; }
-  .cap { grid-template-columns: 3.4rem minmax(0, 1fr); gap: .9rem; }
-  .cap__dia { font-size: 1.9rem; }
-  .cap__dia--rango { font-size: 1rem; }
+  .cap { grid-template-columns: minmax(0, 1fr); gap: .35rem; padding: 1.25rem 0; }
+  .cap__fecha { display: flex; align-items: baseline; gap: .4rem; padding-top: 0; }
+  .cap__dia, .cap__dia--rango { font-size: 1.5rem; }
+  .cap__mes { margin-top: 0; }
   .cap h3 { font-size: 1.05rem; }
-  .mosaico, .mosaico--1, .mosaico--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 7.5rem; margin-left: calc(-3.4rem - .9rem); }
+  .mosaico, .mosaico--1, .mosaico--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 7.5rem; }
   .mosaico--1 .foto { grid-column: span 2; grid-row: span 2; }
   .mosaico--3 .foto:first-child, .mosaico--n .foto:first-child { grid-column: span 2; grid-row: span 2; }
   .visor__barra { flex-direction: column; padding: .75rem 1rem; }
@@ -407,6 +493,7 @@ button, input, select { font: inherit; color: inherit; }
   .visor__escena { padding: .5rem; }
   .visor__nav { top: auto; bottom: .5rem; transform: none; background: rgba(21,21,21,.7); }
   .visor__tira { padding: .5rem 1rem .75rem; }
+  .aviso { left: 1rem; right: 1rem; transform: none; max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
