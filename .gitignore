@@ -1,0 +1,5 @@
+reporte-cruce.csv
+fotos/
+*.zip
+.DS_Store
+__pycache__/

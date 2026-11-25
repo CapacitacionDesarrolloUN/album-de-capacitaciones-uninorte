@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Álbum de capacitaciones · Uninorte</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<!-- Acceso -->
+<section id="acceso" class="acceso" aria-labelledby="acceso-titulo">
+  <div class="acceso__panel" aria-hidden="true">
+    <svg class="acceso__trazo" viewBox="0 0 400 1000" preserveAspectRatio="none"><polyline points="0,40 150,520 400,520 400,1000" /></svg>
+    <p class="acceso__lema">Capacitación y Desarrollo<br>Dirección de Gestión Humana</p>
+  </div>
+  <div class="acceso__form">
+    <img class="logo" src="assets/logo-uninorte.svg" alt="Universidad del Norte" width="250" height="77">
+    <h1 id="acceso-titulo">Álbum de capacitaciones</h1>
+    <p class="acceso__texto">Fotos y fechas de las capacitaciones del Plan de Formación. Escriba la contraseña del equipo para entrar.</p>
+    <form id="form-acceso" autocomplete="off">
+      <label for="clave">Contraseña</label>
+      <div class="campo">
+        <input id="clave" type="password" required autocomplete="current-password" spellcheck="false">
+        <button type="button" class="ver-clave" id="ver-clave" aria-pressed="false">Mostrar</button>
+      </div>
+      <p id="error-acceso" class="error" role="alert" hidden></p>
+      <button type="submit" class="boton" id="entrar">Entrar</button>
+    </form>
+  </div>
+</section>
+
+<!-- Álbum -->
+<div id="album" class="album" hidden>
+  <header class="cabecera">
+    <div class="cabecera__fila">
+      <img class="logo logo--chico" src="assets/logo-uninorte.svg" alt="Universidad del Norte" width="160" height="49">
+      <div class="cabecera__titulo">
+        <h1>Álbum de capacitaciones</h1>
+        <p id="resumen" class="resumen"></p>
+      </div>
+      <button type="button" class="salir" id="salir">Salir</button>
+    </div>
+    <div class="filtros" role="search">
+      <div class="filtro filtro--buscar">
+        <label for="buscar">Buscar</label>
+        <input id="buscar" type="search" placeholder="Nombre, facilitador o lugar" autocomplete="off">
+      </div>
+      <div class="filtro">
+        <label for="f-anio">Año</label>
+        <select id="f-anio"><option value="">Todos</option></select>
+      </div>
+      <div class="filtro" id="filtro-programa" hidden>
+        <label for="f-programa">Programa</label>
+        <select id="f-programa"><option value="">Todos</option></select>
+      </div>
+      <div class="filtro">
+        <label for="f-orden">Orden</label>
+        <select id="f-orden">
+          <option value="desc">Más recientes primero</option>
+          <option value="asc">Más antiguas primero</option>
+          <option value="az">Nombre, A a Z</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <div class="cuerpo">
+    <nav class="meses" id="meses" aria-label="Ir a un mes"></nav>
+    <main id="lista" class="lista" tabindex="-1"></main>
+  </div>
+</div>
+
+<!-- Visor -->
+<div id="visor" class="visor" role="dialog" aria-modal="true" aria-labelledby="visor-titulo" hidden>
+  <div class="visor__barra">
+    <div class="visor__info">
+      <h2 id="visor-titulo"></h2>
+      <p id="visor-meta"></p>
+    </div>
+    <div class="visor__acciones">
+      <span id="visor-contador" class="visor__contador"></span>
+      <button type="button" id="visor-descargar" class="visor__boton">Descargar foto</button>
+      <button type="button" id="visor-descargar-todas" class="visor__boton">Descargar todas</button>
+      <button type="button" id="visor-cerrar" class="visor__boton visor__boton--cerrar" aria-label="Cerrar">Cerrar</button>
+    </div>
+  </div>
+  <div class="visor__escena">
+    <button type="button" id="visor-ant" class="visor__nav visor__nav--ant" aria-label="Foto anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 7 12l8 8"/></svg></button>
+    <img id="visor-img" alt="">
+    <button type="button" id="visor-sig" class="visor__nav visor__nav--sig" aria-label="Foto siguiente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4 8 8-8 8"/></svg></button>
+  </div>
+  <div id="visor-tira" class="visor__tira"></div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
