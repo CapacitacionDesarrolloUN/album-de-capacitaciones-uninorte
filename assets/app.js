@@ -83,6 +83,7 @@
     pintar();
     contarPapelera();
     medirCabecera();
+    purgarVencidas();
     $('lista').focus({ preventScroll: true });
   }
 
@@ -853,7 +854,7 @@
         if (!foto) return cp || { titulo: c.titulo, fotos: [] };
         cp.fotos = cp.fotos.filter((f) => f.id !== idFoto);
         const { fotos, ...datosCap } = cp;
-        nuevo.papelera = (nuevo.papelera || []).concat({ foto, cap: datosCap, quitada: hoyISO() });
+        nuevo.papelera = (nuevo.papelera || []).concat({ foto, cap: datosCap, quitada: new Date().toISOString() });
         if (!cp.fotos.length) nuevo.capacitaciones = nuevo.capacitaciones.filter((x) => x.id !== c.id);
         return cp;
       });
@@ -863,10 +864,10 @@
       refrescar();
       if (cap.fotos.length) {
         const f = foco; abrirVisor(cap, Math.min(k, cap.fotos.length - 1)); foco = f;
-        avisar('Foto quitada de ' + cap.titulo + '. Se puede restaurar desde "Fotos quitadas".');
+        avisar('Foto quitada de ' + cap.titulo + '. Se puede restaurar desde la papelera durante 24 horas.');
       } else {
         cerrarVisor();
-        avisar('Foto quitada. ' + cap.titulo + ' no tenía más fotos y salió del álbum. Se puede restaurar desde "Fotos quitadas".');
+        avisar('Foto quitada. ' + cap.titulo + ' no tenía más fotos y salió del álbum. Se puede restaurar desde la papelera durante 24 horas.');
       }
     } catch (e) {
       restaurarQuitar();
@@ -898,13 +899,85 @@
       urlFoto(p.foto.id, 't').then((u) => { img.src = u; }).catch(() => {});
       const b = el('button', { type: 'button', class: 'salir' }, 'Restaurar');
       b.addEventListener('click', () => restaurarFoto(k, b));
-      const [a, m, d] = p.quitada.split('-');
-      lista.append(el('li', {}, img, el('div', {}, el('strong', {}, p.cap.titulo), el('span', {}, 'Quitada el ' + d + '/' + m + '/' + a)), b));
+      const x = el('button', { type: 'button', class: 'salir salir--peligro' }, 'Borrar');
+      x.addEventListener('click', () => confirmarBorrado(x, 'Borrar', () => borrarDesdePapelera([p.foto.id], x)));
+      const horas = Math.max(0, Math.ceil((vence(p) - Date.now()) / 3600000));
+      const cuando = horas <= 1 ? 'Se borra en menos de una hora' : 'Se borra en ' + horas + ' horas';
+      lista.append(el('li', {}, img, el('div', {}, el('strong', {}, p.cap.titulo), el('span', {}, cuando)), el('div', { class: 'papelera__acciones' }, b, x)));
     });
+    $('vaciar-papelera').hidden = !(datos.papelera || []).length;
     $('error-papelera').hidden = true;
     $('dialogo-papelera').hidden = false;
     $('cerrar-papelera').focus();
   }
+  const DIA = 24 * 3600 * 1000;
+  // fechas viejas solo traen el día: se cuentan desde el inicio de ese día
+  const vence = (p) => (Date.parse(p.quitada.length === 10 ? p.quitada + 'T00:00:00' : p.quitada) || 0) + DIA;
+
+  // Borra para siempre: saca las fotos de la papelera y elimina sus archivos del repositorio en un solo cambio.
+  async function borrarDefinitivo(token, ids, mensaje) {
+    const ref = await gh(token, '/git/ref/heads/main');
+    const base = await gh(token, '/git/commits/' + ref.object.sha);
+    const actual = await gh(token, '/contents/data/indice.bin?ref=' + ref.object.sha);
+    const idx = JSON.parse(new TextDecoder().decode(await descifrar(Uint8Array.from(atob(actual.content.replace(/\n/g, '')), (ch) => ch.charCodeAt(0)))));
+    const papelera = idx.papelera || [];
+    const borradas = papelera.filter((p) => ids.includes(p.foto.id));
+    const quedan = papelera.filter((p) => !ids.includes(p.foto.id));
+    if (!borradas.length) { datos = idx; return 0; }
+    if (quedan.length) idx.papelera = quedan; else delete idx.papelera;
+    idx.actualizado = hoyISO();
+    const enUso = new Set(idx.capacitaciones.flatMap((c) => c.fotos.map((f) => f.id)).concat(quedan.map((p) => p.foto.id)));
+    const blob = await gh(token, '/git/blobs', { method: 'POST', body: JSON.stringify({ content: base64(await cifrar(new TextEncoder().encode(JSON.stringify(idx)))), encoding: 'base64' }) });
+    const arbol = [{ path: 'data/indice.bin', mode: '100644', type: 'blob', sha: blob.sha }];
+    borradas.forEach((p) => {
+      if (enUso.has(p.foto.id)) return;
+      ['t', 'f'].forEach((x) => arbol.push({ path: 'data/p/' + p.foto.id + '.' + x, mode: '100644', type: 'blob', sha: null }));
+    });
+    const tree = await gh(token, '/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: base.tree.sha, tree: arbol }) });
+    const commit = await gh(token, '/git/commits', { method: 'POST', body: JSON.stringify({ message: mensaje, tree: tree.sha, parents: [ref.object.sha] }) });
+    await gh(token, '/git/refs/heads/main', { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
+    datos = idx;
+    return borradas.length;
+  }
+
+  function confirmarBorrado(boton, texto, accion) {
+    if (boton.dataset.confirmar) { delete boton.dataset.confirmar; accion(); return; }
+    boton.dataset.confirmar = '1';
+    boton.textContent = 'Sí, borrar';
+    setTimeout(() => { if (boton.dataset.confirmar) { delete boton.dataset.confirmar; boton.textContent = texto; } }, 5000);
+  }
+
+  async function borrarDesdePapelera(ids, boton) {
+    const token = leerToken();
+    if (!token) {
+      $('error-papelera').textContent = 'Para borrar se necesita el token de GitHub. Péguelo primero en "Añadir fotos".';
+      $('error-papelera').hidden = false;
+      return;
+    }
+    boton.disabled = true; boton.textContent = 'Borrando';
+    try {
+      const n = await borrarDefinitivo(token, ids, 'Borra ' + plural(ids.length, 'foto', 'fotos') + ' de la papelera');
+      refrescar();
+      avisar(plural(n, 'foto borrada', 'fotos borradas') + ' para siempre.');
+      if ((datos.papelera || []).length) abrirPapelera(); else $('dialogo-papelera').hidden = true;
+    } catch (e) {
+      boton.disabled = false; boton.textContent = 'Borrar';
+      $('error-papelera').textContent = e.message === 'token' ? 'GitHub no aceptó el token guardado en este navegador.' : 'No se borró: ' + e.message + '.';
+      $('error-papelera').hidden = false;
+    }
+  }
+
+  // Al abrir el álbum, si hay token, borra lo que lleva más de 24 horas en la papelera.
+  async function purgarVencidas() {
+    const token = leerToken();
+    const vencidas = (datos.papelera || []).filter((p) => vence(p) <= Date.now()).map((p) => p.foto.id);
+    if (!token || !vencidas.length) return;
+    try {
+      await borrarDefinitivo(token, vencidas, 'Borra ' + plural(vencidas.length, 'foto', 'fotos') + ' con más de 24 horas en la papelera');
+      refrescar();
+    } catch (e) { /* se intenta de nuevo la próxima vez */ }
+  }
+
   async function restaurarFoto(k, boton) {
     let token = null;
     try { token = localStorage.getItem(CLAVE_TOKEN); } catch (e) { /* nada */ }
@@ -936,6 +1009,10 @@
     }
   }
   $('ver-papelera').addEventListener('click', abrirPapelera);
+  $('vaciar-papelera').addEventListener('click', (e) => {
+    const b = e.currentTarget;
+    confirmarBorrado(b, 'Vaciar papelera', () => borrarDesdePapelera((datos.papelera || []).map((p) => p.foto.id), b));
+  });
   $('cerrar-papelera').addEventListener('click', () => { $('dialogo-papelera').hidden = true; $('ver-papelera').focus(); });
 
   $('visor-quitar').addEventListener('click', () => {

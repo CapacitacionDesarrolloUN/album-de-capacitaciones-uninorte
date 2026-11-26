@@ -591,3 +591,8 @@ button, input, select { font: inherit; color: inherit; }
 .papelera-boton span:empty { display: none; }
 .papelera__vacia { color: var(--gris-70); font-size: .9rem; display: block !important; }
 @media (max-width: 720px) { .papelera-boton { justify-self: end; align-self: end; } }
+.papelera__acciones { display: flex; flex-direction: column; gap: .35rem; }
+.papelera__acciones .salir { white-space: nowrap; }
+.salir--peligro { color: var(--rojo); }
+.salir--peligro:hover { border-color: var(--rojo); }
+.salir--peligro[data-confirmar] { background: var(--rojo); color: var(--blanco); border-color: var(--rojo); }
