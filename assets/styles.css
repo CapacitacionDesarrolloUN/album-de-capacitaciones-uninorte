@@ -585,3 +585,9 @@ button, input, select { font: inherit; color: inherit; }
 .papelera div { min-width: 0; }
 .papelera strong { display: block; font-size: .9rem; overflow-wrap: anywhere; }
 .papelera span { font-size: .8rem; color: var(--gris-70); }
+.papelera-boton { margin-left: auto; min-height: 2.5rem; min-width: 2.5rem; display: inline-flex; align-items: center; justify-content: center; gap: .3rem; padding: 0 .55rem; border: 1px solid var(--gris-20); background: var(--blanco); color: var(--gris-70); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.papelera-boton svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; }
+.papelera-boton:hover, .papelera-boton:focus-visible { border-color: var(--negro); color: var(--rojo); }
+.papelera-boton span:empty { display: none; }
+.papelera__vacia { color: var(--gris-70); font-size: .9rem; display: block !important; }
+@media (max-width: 720px) { .papelera-boton { justify-self: end; align-self: end; } }

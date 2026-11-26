@@ -442,29 +442,35 @@
     return btoa(s);
   }
 
-  async function subirIndice(nuevo, token, mensaje) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const cif = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, clave, new TextEncoder().encode(JSON.stringify(nuevo))));
-    const todo = new Uint8Array(12 + cif.length); todo.set(iv); todo.set(cif, 12);
+  // Lee el índice vigente en GitHub (no el que se cargó al abrir la página), aplica el cambio y lo guarda.
+  async function cambiarIndice(token, mensaje, cambio) {
     const url = 'https://api.github.com/repos/' + REPO + '/contents/data/indice.bin';
     const cab = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' };
     const r1 = await fetch(url + '?ref=main', { headers: cab, cache: 'no-store' });
     if (r1.status === 401 || r1.status === 403 || r1.status === 404) throw new Error('token');
     if (!r1.ok) throw new Error('GitHub respondió ' + r1.status);
-    const { sha } = await r1.json();
+    const { sha, content } = await r1.json();
+    const bytes = Uint8Array.from(atob(content.replace(/\n/g, '')), (ch) => ch.charCodeAt(0));
+    const nuevo = JSON.parse(new TextDecoder().decode(await descifrar(bytes)));
+    const resultado = cambio(nuevo);
+    nuevo.actualizado = hoyISO();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const cif = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, clave, new TextEncoder().encode(JSON.stringify(nuevo))));
+    const todo = new Uint8Array(12 + cif.length); todo.set(iv); todo.set(cif, 12);
     const r2 = await fetch(url, {
       method: 'PUT',
       headers: { ...cab, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: mensaje || ('Actualiza datos del álbum (' + plural(pendientes.size, 'capacitación', 'capacitaciones') + ')'), content: base64(todo), sha, branch: 'main' }),
+      body: JSON.stringify({ message: mensaje, content: base64(todo), sha, branch: 'main' }),
     });
     if (r2.status === 401 || r2.status === 403 || r2.status === 404) throw new Error('token');
     if (r2.status === 409) throw new Error('Otra persona guardó cambios al mismo tiempo. Recargue la página e intente de nuevo');
     if (!r2.ok) throw new Error('GitHub respondió ' + r2.status);
+    datos = nuevo;
+    return resultado;
   }
 
   async function guardar(token) {
-    const nuevo = JSON.parse(JSON.stringify(datos));
-    nuevo.capacitaciones.forEach((c) => {
+    await cambiarIndice(token, 'Actualiza datos del álbum (' + plural(pendientes.size, 'capacitación', 'capacitaciones') + ')', (nuevo) => nuevo.capacitaciones.forEach((c) => {
       const p = pendientes.get(c.id);
       if (!p) return;
       for (const [k, v] of Object.entries(p)) {
@@ -473,11 +479,7 @@
         if (k === 'fecha') c.origen_fecha = v ? 'manual' : undefined;
       }
       if (c.fecha_fin && c.fecha && c.fecha_fin < c.fecha) delete c.fecha_fin;
-    });
-    const hoy = new Date();
-    nuevo.actualizado = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
-    await subirIndice(nuevo, token);
-    datos = nuevo;
+    }));
   }
 
   async function intentarGuardar(token) {
@@ -844,22 +846,21 @@
     const b = $('visor-quitar'), c = actual, k = indice;
     b.disabled = true; b.textContent = 'Quitando';
     try {
-      const nuevo = JSON.parse(JSON.stringify(datos));
-      const cap = nuevo.capacitaciones.find((x) => x.id === c.id);
       const idFoto = c.fotos[k].id;
-      const foto = cap.fotos.find((f) => f.id === idFoto);
-      cap.fotos = cap.fotos.filter((f) => f.id !== idFoto);
-      const { fotos, ...datosCap } = cap;
-      nuevo.papelera = (nuevo.papelera || []).concat({ foto, cap: datosCap, quitada: hoyISO() });
-      if (!cap.fotos.length) nuevo.capacitaciones = nuevo.capacitaciones.filter((x) => x.id !== c.id);
-      nuevo.actualizado = hoyISO();
-      await subirIndice(nuevo, token, 'Quita una foto de ' + c.titulo);
+      const cap = await cambiarIndice(token, 'Quita una foto de ' + c.titulo, (nuevo) => {
+        const cp = nuevo.capacitaciones.find((x) => x.id === c.id);
+        const foto = cp && cp.fotos.find((f) => f.id === idFoto);
+        if (!foto) return cp || { titulo: c.titulo, fotos: [] };
+        cp.fotos = cp.fotos.filter((f) => f.id !== idFoto);
+        const { fotos, ...datosCap } = cp;
+        nuevo.papelera = (nuevo.papelera || []).concat({ foto, cap: datosCap, quitada: hoyISO() });
+        if (!cp.fotos.length) nuevo.capacitaciones = nuevo.capacitaciones.filter((x) => x.id !== c.id);
+        return cp;
+      });
       try { localStorage.setItem(CLAVE_TOKEN, token); } catch (e) { /* nada */ }
-      datos = nuevo;
       $('dialogo-token').hidden = true;
       restaurarQuitar();
-      reiniciarFiltros();
-      contarPapelera();
+      refrescar();
       if (cap.fotos.length) {
         const f = foco; abrirVisor(cap, Math.min(k, cap.fotos.length - 1)); foco = f;
         avisar('Foto quitada de ' + cap.titulo + '. Se puede restaurar desde "Fotos quitadas".');
@@ -884,12 +885,14 @@
   const hoyISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   function contarPapelera() {
     const n = (datos.papelera || []).length;
-    $('ver-papelera').hidden = n === 0;
-    $('ver-papelera').textContent = 'Fotos quitadas (' + n + ')';
+    $('papelera-n').textContent = n ? String(n) : '';
+    $('ver-papelera').setAttribute('aria-label', 'Papelera' + (n ? ', ' + plural(n, 'foto', 'fotos') : ', vacía'));
   }
+  function refrescar() { reiniciarFiltros(); pintar(); contarPapelera(); }
   function abrirPapelera() {
     const lista = $('lista-papelera');
     lista.replaceChildren();
+    if (!(datos.papelera || []).length) lista.append(el('li', { class: 'papelera__vacia' }, 'La papelera está vacía.'));
     (datos.papelera || []).forEach((p, k) => {
       const img = el('img', { alt: '' });
       urlFoto(p.foto.id, 't').then((u) => { img.src = u; }).catch(() => {});
@@ -906,23 +909,24 @@
     let token = null;
     try { token = localStorage.getItem(CLAVE_TOKEN); } catch (e) { /* nada */ }
     if (!token) {
-      $('error-papelera').textContent = 'Para restaurar se necesita el token de GitHub. Péguelo primero en "Añadir fotos" o "Editar datos".';
+      $('error-papelera').textContent = 'Para restaurar se necesita el token de GitHub. Péguelo primero en "Añadir fotos".';
       $('error-papelera').hidden = false;
       return;
     }
     boton.disabled = true; boton.textContent = 'Restaurando';
     try {
-      const nuevo = JSON.parse(JSON.stringify(datos));
-      const [p] = nuevo.papelera.splice(k, 1);
-      let cap = nuevo.capacitaciones.find((x) => x.id === p.cap.id);
-      if (!cap) { cap = { ...p.cap, fotos: [] }; nuevo.capacitaciones.push(cap); }
-      cap.fotos.push(p.foto);
-      if (!nuevo.papelera.length) delete nuevo.papelera;
-      nuevo.actualizado = hoyISO();
-      await subirIndice(nuevo, token, 'Restaura una foto de ' + cap.titulo);
-      datos = nuevo;
-      reiniciarFiltros();
-      contarPapelera();
+      const idFoto = datos.papelera[k].foto.id;
+      const cap = await cambiarIndice(token, 'Restaura una foto de ' + datos.papelera[k].cap.titulo, (nuevo) => {
+        const j = (nuevo.papelera || []).findIndex((x) => x.foto.id === idFoto);
+        if (j < 0) return datos.papelera[k].cap;
+        const [p] = nuevo.papelera.splice(j, 1);
+        let cp = nuevo.capacitaciones.find((x) => x.id === p.cap.id);
+        if (!cp) { cp = { ...p.cap, fotos: [] }; nuevo.capacitaciones.push(cp); }
+        cp.fotos.push(p.foto);
+        if (!nuevo.papelera.length) delete nuevo.papelera;
+        return cp;
+      });
+      refrescar();
       avisar('Foto restaurada en ' + cap.titulo + '.');
       if ((datos.papelera || []).length) abrirPapelera(); else $('dialogo-papelera').hidden = true;
     } catch (e) {
