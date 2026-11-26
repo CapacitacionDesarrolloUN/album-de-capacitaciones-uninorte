@@ -111,21 +111,13 @@
     </label>
     <div id="previas" class="previas"></div>
 
-    <fieldset class="destino">
-      <legend>¿De qué capacitación son?</legend>
-      <label class="opcion"><input type="radio" name="destino" value="existente" checked> Una que ya está en el álbum</label>
-      <label class="opcion"><input type="radio" name="destino" value="nueva"> Una nueva</label>
-    </fieldset>
-
-    <div id="campo-existente">
-      <label for="cap-existente">Capacitación</label>
-      <select id="cap-existente"></select>
-    </div>
-    <div id="campos-nueva" class="campos-nueva" hidden>
-      <div class="ancho"><label for="n-titulo">Nombre de la capacitación</label><input id="n-titulo" type="text" list="lista-plan"></div>
+    <div class="campos-nueva">
+      <div class="ancho">
+        <label for="n-titulo">Nombre de la capacitación</label>
+        <input id="n-titulo" type="text" list="lista-titulos" autocomplete="off">
+        <p id="n-pista" class="ayuda" hidden></p>
+      </div>
       <div><label for="n-fecha">Fecha</label><input id="n-fecha" type="date"></div>
-      <div><label for="n-fecha-fin">Fecha final (opcional)</label><input id="n-fecha-fin" type="date"></div>
-      <div class="ancho"><label for="n-programa">Programa</label><input id="n-programa" type="text" list="lista-programas-n"></div>
     </div>
 
     <div id="campo-token-fotos" hidden>

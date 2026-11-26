@@ -479,10 +479,6 @@ button, input, select { font: inherit; color: inherit; }
 .soltar:focus-within { outline: 3px solid var(--dorado); outline-offset: 2px; }
 .previas { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: .75rem; }
 .previas img { width: 4.2rem; height: 3.2rem; object-fit: cover; background: var(--fondo-suave); }
-.destino { border: 0; padding: 0; margin: .5rem 0 .75rem; display: flex; gap: 1.25rem; flex-wrap: wrap; }
-.destino legend { font-weight: 700; margin-bottom: .4rem; padding: 0; }
-.opcion { display: inline-flex !important; align-items: center; gap: .4rem; font-weight: 500 !important; margin: 0 !important; }
-.opcion input { width: auto !important; accent-color: var(--rojo); }
 .dialogo__caja select { width: 100%; border: 2px solid var(--negro); padding: .6rem .7rem; background: var(--blanco); }
 .campos-nueva { display: grid; grid-template-columns: 1fr 1fr; gap: .2rem .8rem; }
 .campos-nueva > div { min-width: 0; }

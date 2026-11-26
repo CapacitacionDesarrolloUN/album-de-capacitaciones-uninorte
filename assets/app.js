@@ -544,21 +544,17 @@
     $('soltar-texto').textContent = 'Elija las fotos o arrástrelas aquí';
     $('error-fotos').hidden = true;
     $('progreso-fotos').hidden = true;
-    const sel = $('cap-existente');
-    sel.replaceChildren(el('option', { value: '' }, 'Elija una capacitación'));
-    [...datos.capacitaciones].sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'))
-      .forEach((c) => sel.append(el('option', { value: c.id }, c.titulo + (c.fecha ? ' (' + fechaCorta(c.fecha) + ')' : ''))));
-    if (!document.getElementById('lista-programas-n')) {
-      const progs = [...new Set(datos.capacitaciones.map((x) => x.programa).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-      document.body.append(el('datalist', { id: 'lista-programas-n' }, progs.map((p) => el('option', { value: p }))));
-    }
+    const viejo = document.getElementById('lista-titulos'); if (viejo) viejo.remove();
+    document.body.append(el('datalist', { id: 'lista-titulos' },
+      [...datos.capacitaciones].sort((a, b) => a.titulo.localeCompare(b.titulo, 'es')).map((c) => el('option', { value: c.titulo }))));
+    $('n-titulo').value = '';
+    $('n-fecha').value = '';
+    $('n-pista').hidden = true;
     $('campo-token-fotos').hidden = !!leerToken();
     $('subir-fotos').disabled = false;
     $('dialogo-fotos').hidden = false;
     $('archivos').focus();
   }
-
-  const fechaCorta = (iso) => { const i = partes(iso); return i.d + ' ' + MESES[i.m - 1].slice(0, 3) + '. ' + i.a; };
 
   function elegirArchivos(lista) {
     const nuevos = [...lista].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name));
@@ -581,11 +577,18 @@
   ['dragenter', 'dragover'].forEach((t) => zona.addEventListener(t, (e) => { e.preventDefault(); zona.classList.add('encima'); }));
   ['dragleave', 'drop'].forEach((t) => zona.addEventListener(t, (e) => { e.preventDefault(); zona.classList.remove('encima'); }));
   zona.addEventListener('drop', (e) => elegirArchivos(e.dataTransfer.files));
-  document.querySelectorAll('input[name="destino"]').forEach((r) => r.addEventListener('change', () => {
-    const nueva = document.querySelector('input[name="destino"]:checked').value === 'nueva';
-    $('campos-nueva').hidden = !nueva;
-    $('campo-existente').hidden = nueva;
-  }));
+  const buscarCap = (lista, titulo) => lista.find((c) => sinTildes(c.titulo).trim() === sinTildes(titulo).trim());
+  $('n-titulo').addEventListener('input', () => {
+    const c = buscarCap(datos.capacitaciones, $('n-titulo').value);
+    const pista = $('n-pista');
+    if (c) {
+      pista.textContent = 'Ya está en el álbum: las fotos se suman a las ' + c.fotos.length + ' que tiene.';
+      pista.hidden = false;
+      if (c.fecha && !$('n-fecha').value) $('n-fecha').value = c.fecha;
+    } else {
+      pista.hidden = true;
+    }
+  });
   $('cancelar-fotos').addEventListener('click', () => { $('dialogo-fotos').hidden = true; $('anadir').focus(); });
 
   async function reducir(archivo, maximo, calidad) {
@@ -633,7 +636,6 @@
   }
 
   async function subirFotos(token) {
-    const destino = document.querySelector('input[name="destino"]:checked').value;
     const prog = $('progreso-fotos');
     prog.hidden = false;
     const avance = (t) => { prog.textContent = t; };
@@ -667,16 +669,16 @@
     const bytesIndice = Uint8Array.from(atob(actual.content.replace(/\n/g, '')), (c) => c.charCodeAt(0));
     const indiceRemoto = JSON.parse(new TextDecoder().decode(await descifrar(bytesIndice)));
 
-    let cap;
-    if (destino === 'existente') {
-      cap = indiceRemoto.capacitaciones.find((c) => c.id === $('cap-existente').value);
-      if (!cap) throw new Error('La capacitación elegida ya no está en el álbum. Recargue la página');
-    } else {
-      cap = { id: hex(crypto.getRandomValues(new Uint8Array(6))), titulo: $('n-titulo').value.trim(), fotos: [] };
-      if ($('n-fecha').value) { cap.fecha = $('n-fecha').value; cap.origen_fecha = 'manual'; }
-      if ($('n-fecha-fin').value && $('n-fecha-fin').value > (cap.fecha || '')) cap.fecha_fin = $('n-fecha-fin').value;
-      if ($('n-programa').value.trim()) cap.programa = $('n-programa').value.trim();
+    const titulo = $('n-titulo').value.trim(), fecha = $('n-fecha').value;
+    let cap = buscarCap(indiceRemoto.capacitaciones, titulo);
+    if (!cap) {
+      cap = { id: hex(crypto.getRandomValues(new Uint8Array(6))), titulo, fotos: [] };
       indiceRemoto.capacitaciones.push(cap);
+    }
+    if (fecha && fecha !== cap.fecha) {
+      cap.fecha = fecha;
+      cap.origen_fecha = 'manual';
+      if (cap.fecha_fin && cap.fecha_fin < fecha) delete cap.fecha_fin;
     }
     cap.fotos = cap.fotos.concat(nuevas);
     const hoy = new Date();
@@ -710,9 +712,7 @@
     err.hidden = true;
     const falla = (t, foco) => { err.textContent = t; err.hidden = false; if (foco) foco.focus(); };
     if (!archivosElegidos.length) return falla('Elija al menos una foto.', $('archivos'));
-    const destino = document.querySelector('input[name="destino"]:checked').value;
-    if (destino === 'existente' && !$('cap-existente').value) return falla('Elija la capacitación a la que pertenecen las fotos.', $('cap-existente'));
-    if (destino === 'nueva' && !$('n-titulo').value.trim()) return falla('Escriba el nombre de la capacitación.', $('n-titulo'));
+    if (!$('n-titulo').value.trim()) return falla('Escriba el nombre de la capacitación.', $('n-titulo'));
     let token = leerToken();
     if (!token) {
       token = $('token-fotos').value.trim();

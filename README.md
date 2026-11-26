@@ -6,7 +6,7 @@ La página pide una contraseña. Las fotos y el índice se guardan cifrados (AES
 
 ## Agregar fotos
 
-Desde la página: botón "Añadir fotos". Se eligen las fotos, la capacitación (existente o nueva) y se suben. La página las reduce, las cifra y las guarda en el repositorio en un solo cambio. La primera vez pide un token de GitHub con permiso Contents: Read and write sobre este repositorio.
+Desde la página: botón "Añadir fotos". Se eligen las fotos, se escribe el nombre de la capacitación y la fecha, y se suben. Si el nombre ya existe, las fotos se suman a esa capacitación. La página las reduce, las cifra y las guarda en el repositorio en un solo cambio. La primera vez pide un token de GitHub con permiso Contents: Read and write sobre este repositorio.
 
 Por lotes, con el script:
 
