@@ -81,6 +81,7 @@
     if (animar) $('album').classList.add('album--entra');
     prepararFiltros();
     pintar();
+    contarPapelera();
     medirCabecera();
     $('lista').focus({ preventScroll: true });
   }
@@ -441,7 +442,7 @@
     return btoa(s);
   }
 
-  async function subirIndice(nuevo, token) {
+  async function subirIndice(nuevo, token, mensaje) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const cif = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, clave, new TextEncoder().encode(JSON.stringify(nuevo))));
     const todo = new Uint8Array(12 + cif.length); todo.set(iv); todo.set(cif, 12);
@@ -454,7 +455,7 @@
     const r2 = await fetch(url, {
       method: 'PUT',
       headers: { ...cab, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'Actualiza datos del álbum (' + plural(pendientes.size, 'capacitación', 'capacitaciones') + ')', content: base64(todo), sha, branch: 'main' }),
+      body: JSON.stringify({ message: mensaje || ('Actualiza datos del álbum (' + plural(pendientes.size, 'capacitación', 'capacitaciones') + ')'), content: base64(todo), sha, branch: 'main' }),
     });
     if (r2.status === 401 || r2.status === 403 || r2.status === 404) throw new Error('token');
     if (r2.status === 409) throw new Error('Otra persona guardó cambios al mismo tiempo. Recargue la página e intente de nuevo');
@@ -517,8 +518,13 @@
     if (token) intentarGuardar(token);
     else { $('error-token').hidden = true; $('dialogo-token').hidden = false; $('token').focus(); }
   });
-  $('cancelar-token').addEventListener('click', () => { $('dialogo-token').hidden = true; $('guardar').focus(); });
-  $('form-token').addEventListener('submit', (e) => { e.preventDefault(); intentarGuardar($('token').value.trim()); });
+  $('cancelar-token').addEventListener('click', () => { $('dialogo-token').hidden = true; if (trasToken) trasToken = null; else $('guardar').focus(); });
+  let trasToken = null;
+  $('form-token').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const t = $('token').value.trim();
+    if (trasToken) { const f = trasToken; trasToken = null; f(t); } else intentarGuardar(t);
+  });
 
   function reiniciarFiltros() {
     const anio = $('f-anio'), prog = $('f-programa');
@@ -767,6 +773,7 @@
   }
 
   async function ir(j) {
+    if (esperaQuitar) restaurarQuitar();
     const n = actual.fotos.length;
     indice = (j + n) % n;
     const f = actual.fotos[indice];
@@ -789,6 +796,7 @@
   }
 
   function cerrarVisor() {
+    if (esperaQuitar) restaurarQuitar();
     $('visor').hidden = true;
     document.body.style.overflow = '';
     actual = null;
@@ -825,11 +833,132 @@
     btn.textContent = 'Descargar todas';
   });
 
+  // quitar una foto: sale del índice; el archivo cifrado queda en el repositorio
+  let esperaQuitar = null;
+  function restaurarQuitar() {
+    const b = $('visor-quitar');
+    clearTimeout(esperaQuitar); esperaQuitar = null;
+    b.textContent = 'Quitar foto'; b.classList.remove('visor__boton--alerta'); b.disabled = false;
+  }
+  async function quitarFoto(token) {
+    const b = $('visor-quitar'), c = actual, k = indice;
+    b.disabled = true; b.textContent = 'Quitando';
+    try {
+      const nuevo = JSON.parse(JSON.stringify(datos));
+      const cap = nuevo.capacitaciones.find((x) => x.id === c.id);
+      const idFoto = c.fotos[k].id;
+      const foto = cap.fotos.find((f) => f.id === idFoto);
+      cap.fotos = cap.fotos.filter((f) => f.id !== idFoto);
+      const { fotos, ...datosCap } = cap;
+      nuevo.papelera = (nuevo.papelera || []).concat({ foto, cap: datosCap, quitada: hoyISO() });
+      if (!cap.fotos.length) nuevo.capacitaciones = nuevo.capacitaciones.filter((x) => x.id !== c.id);
+      nuevo.actualizado = hoyISO();
+      await subirIndice(nuevo, token, 'Quita una foto de ' + c.titulo);
+      try { localStorage.setItem(CLAVE_TOKEN, token); } catch (e) { /* nada */ }
+      datos = nuevo;
+      $('dialogo-token').hidden = true;
+      restaurarQuitar();
+      reiniciarFiltros();
+      contarPapelera();
+      if (cap.fotos.length) {
+        const f = foco; abrirVisor(cap, Math.min(k, cap.fotos.length - 1)); foco = f;
+        avisar('Foto quitada de ' + cap.titulo + '. Se puede restaurar desde "Fotos quitadas".');
+      } else {
+        cerrarVisor();
+        avisar('Foto quitada. ' + cap.titulo + ' no tenía más fotos y salió del álbum. Se puede restaurar desde "Fotos quitadas".');
+      }
+    } catch (e) {
+      restaurarQuitar();
+      if (e.message === 'token') {
+        try { localStorage.removeItem(CLAVE_TOKEN); } catch (x) { /* nada */ }
+        trasToken = quitarFoto;
+        $('error-token').textContent = 'GitHub no aceptó el token. Revise que tenga permiso de escritura en el repositorio del álbum.';
+        $('error-token').hidden = false;
+        $('dialogo-token').hidden = false;
+        $('token').focus();
+      } else {
+        avisar('No se quitó la foto: ' + e.message + '.', true);
+      }
+    }
+  }
+  const hoyISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  function contarPapelera() {
+    const n = (datos.papelera || []).length;
+    $('ver-papelera').hidden = n === 0;
+    $('ver-papelera').textContent = 'Fotos quitadas (' + n + ')';
+  }
+  function abrirPapelera() {
+    const lista = $('lista-papelera');
+    lista.replaceChildren();
+    (datos.papelera || []).forEach((p, k) => {
+      const img = el('img', { alt: '' });
+      urlFoto(p.foto.id, 't').then((u) => { img.src = u; }).catch(() => {});
+      const b = el('button', { type: 'button', class: 'salir' }, 'Restaurar');
+      b.addEventListener('click', () => restaurarFoto(k, b));
+      const [a, m, d] = p.quitada.split('-');
+      lista.append(el('li', {}, img, el('div', {}, el('strong', {}, p.cap.titulo), el('span', {}, 'Quitada el ' + d + '/' + m + '/' + a)), b));
+    });
+    $('error-papelera').hidden = true;
+    $('dialogo-papelera').hidden = false;
+    $('cerrar-papelera').focus();
+  }
+  async function restaurarFoto(k, boton) {
+    let token = null;
+    try { token = localStorage.getItem(CLAVE_TOKEN); } catch (e) { /* nada */ }
+    if (!token) {
+      $('error-papelera').textContent = 'Para restaurar se necesita el token de GitHub. Péguelo primero en "Añadir fotos" o "Editar datos".';
+      $('error-papelera').hidden = false;
+      return;
+    }
+    boton.disabled = true; boton.textContent = 'Restaurando';
+    try {
+      const nuevo = JSON.parse(JSON.stringify(datos));
+      const [p] = nuevo.papelera.splice(k, 1);
+      let cap = nuevo.capacitaciones.find((x) => x.id === p.cap.id);
+      if (!cap) { cap = { ...p.cap, fotos: [] }; nuevo.capacitaciones.push(cap); }
+      cap.fotos.push(p.foto);
+      if (!nuevo.papelera.length) delete nuevo.papelera;
+      nuevo.actualizado = hoyISO();
+      await subirIndice(nuevo, token, 'Restaura una foto de ' + cap.titulo);
+      datos = nuevo;
+      reiniciarFiltros();
+      contarPapelera();
+      avisar('Foto restaurada en ' + cap.titulo + '.');
+      if ((datos.papelera || []).length) abrirPapelera(); else $('dialogo-papelera').hidden = true;
+    } catch (e) {
+      boton.disabled = false; boton.textContent = 'Restaurar';
+      $('error-papelera').textContent = e.message === 'token' ? 'GitHub no aceptó el token guardado en este navegador.' : 'No se restauró: ' + e.message + '.';
+      $('error-papelera').hidden = false;
+    }
+  }
+  $('ver-papelera').addEventListener('click', abrirPapelera);
+  $('cerrar-papelera').addEventListener('click', () => { $('dialogo-papelera').hidden = true; $('ver-papelera').focus(); });
+
+  $('visor-quitar').addEventListener('click', () => {
+    const b = $('visor-quitar');
+    if (!esperaQuitar) {
+      b.textContent = 'Sí, quitar esta foto';
+      b.classList.add('visor__boton--alerta');
+      esperaQuitar = setTimeout(restaurarQuitar, 5000);
+      return;
+    }
+    clearTimeout(esperaQuitar);
+    let token = null;
+    try { token = localStorage.getItem(CLAVE_TOKEN); } catch (e) { /* nada */ }
+    if (token) quitarFoto(token);
+    else {
+      restaurarQuitar();
+      trasToken = quitarFoto;
+      $('error-token').hidden = true; $('dialogo-token').hidden = false; $('token').focus();
+    }
+  });
+
   $('visor-cerrar').addEventListener('click', cerrarVisor);
   $('visor-ant').addEventListener('click', () => ir(indice - 1));
   $('visor-sig').addEventListener('click', () => ir(indice + 1));
   document.addEventListener('keydown', (e) => {
-    if (!$('dialogo-token').hidden && e.key === 'Escape') { $('dialogo-token').hidden = true; return; }
+    if (!$('dialogo-token').hidden && e.key === 'Escape') { $('dialogo-token').hidden = true; trasToken = null; return; }
+    if (!$('dialogo-papelera').hidden && e.key === 'Escape') { $('dialogo-papelera').hidden = true; return; }
     if (!$('dialogo-fotos').hidden && e.key === 'Escape' && !$('subir-fotos').disabled) { $('dialogo-fotos').hidden = true; return; }
     if ($('visor').hidden) return;
     if (e.key === 'Escape') cerrarVisor();

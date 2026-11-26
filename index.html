@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=3">
+<link rel="stylesheet" href="assets/styles.css?v=4">
 </head>
 <body>
 
@@ -46,6 +46,7 @@
         <p id="resumen" class="resumen"></p>
       </div>
       <button type="button" class="boton boton--chico" id="anadir">Añadir fotos</button>
+      <button type="button" class="salir" id="ver-papelera" hidden>Fotos quitadas</button>
       <button type="button" class="salir" id="editar" aria-pressed="false">Editar datos</button>
       <button type="button" class="salir" id="salir">Salir</button>
     </div>
@@ -135,6 +136,16 @@
   </form>
 </div>
 
+<div id="dialogo-papelera" class="dialogo" role="dialog" aria-modal="true" aria-labelledby="dialogo-papelera-titulo" hidden>
+  <div class="dialogo__caja dialogo__caja--ancha">
+    <h2 id="dialogo-papelera-titulo">Fotos quitadas</h2>
+    <p>Las fotos quitadas no se borran. Restaure cualquiera y vuelve a su capacitación.</p>
+    <ul id="lista-papelera" class="papelera"></ul>
+    <p id="error-papelera" class="error" role="alert" hidden></p>
+    <div class="dialogo__acciones"><button type="button" class="boton" id="cerrar-papelera">Cerrar</button></div>
+  </div>
+</div>
+
 <p id="aviso" class="aviso" role="status" hidden></p>
 
 <!-- Visor -->
@@ -146,6 +157,7 @@
     </div>
     <div class="visor__acciones">
       <span id="visor-contador" class="visor__contador"></span>
+      <button type="button" id="visor-quitar" class="visor__boton">Quitar foto</button>
       <button type="button" id="visor-descargar" class="visor__boton">Descargar foto</button>
       <button type="button" id="visor-descargar-todas" class="visor__boton">Descargar todas</button>
       <button type="button" id="visor-cerrar" class="visor__boton visor__boton--cerrar" aria-label="Cerrar">Cerrar</button>
@@ -159,6 +171,6 @@
   <div id="visor-tira" class="visor__tira"></div>
 </div>
 
-<script src="assets/app.js?v=3"></script>
+<script src="assets/app.js?v=4"></script>
 </body>
 </html>

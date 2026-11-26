@@ -35,6 +35,8 @@ Edite `data/correcciones.json` y vuelva a ejecutar el paso 2 (sin fotos nuevas b
 
 Las fotos quitadas desaparecen de la página; sus archivos cifrados quedan en `data/p/`.
 
+Desde la página, el visor tiene "Quitar foto" (pide confirmar). La foto pasa a "Fotos quitadas", en la cabecera, desde donde se restaura. No se borra ningún archivo.
+
 ## Archivos
 
 - `index.html`, `assets/`: la página.

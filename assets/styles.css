@@ -576,3 +576,12 @@ button, input, select { font: inherit; color: inherit; }
   .mes::after { transform: scaleX(1); }
   .acceso__trazo polyline { stroke-dashoffset: 0; }
 }
+
+/* Quitar y restaurar fotos */
+.visor__boton--alerta { background: var(--rojo); border-color: var(--rojo); color: var(--blanco); }
+.papelera { list-style: none; margin: 0 0 .5rem; padding: 0; }
+.papelera li { display: grid; grid-template-columns: 4.2rem 1fr auto; gap: .8rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--gris-20, #D1D2D4); }
+.papelera img { width: 4.2rem; height: 3.2rem; object-fit: cover; background: var(--fondo-suave); }
+.papelera div { min-width: 0; }
+.papelera strong { display: block; font-size: .9rem; overflow-wrap: anywhere; }
+.papelera span { font-size: .8rem; color: var(--gris-70); }
