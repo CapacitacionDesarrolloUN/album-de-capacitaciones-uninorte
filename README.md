@@ -35,7 +35,7 @@ Edite `data/correcciones.json` y vuelva a ejecutar el paso 2 (sin fotos nuevas b
 
 Las fotos quitadas desaparecen de la página; sus archivos cifrados quedan en `data/p/`.
 
-Desde la página, el visor tiene "Quitar foto" (pide confirmar). La foto pasa a la papelera (ícono junto a los filtros), donde se puede restaurar o borrar. A las 24 horas se borra sola: la próxima vez que alguien con token abra el álbum, la página elimina del repositorio los archivos de las fotos vencidas. Quedan en el historial de git, cifrados.
+Desde la página, el visor tiene "Eliminar foto" (pide confirmar). La foto pasa a la papelera (ícono junto a los filtros), donde se puede restaurar o borrar. A las 24 horas se borra sola: la próxima vez que alguien con token abra el álbum, la página elimina del repositorio los archivos de las fotos vencidas. Quedan en el historial de git, cifrados.
 
 ## Archivos
 

@@ -841,14 +841,14 @@
   function restaurarQuitar() {
     const b = $('visor-quitar');
     clearTimeout(esperaQuitar); esperaQuitar = null;
-    b.textContent = 'Quitar foto'; b.classList.remove('visor__boton--alerta'); b.disabled = false;
+    b.textContent = 'Eliminar foto'; b.classList.remove('visor__boton--alerta'); b.disabled = false;
   }
   async function quitarFoto(token) {
     const b = $('visor-quitar'), c = actual, k = indice;
-    b.disabled = true; b.textContent = 'Quitando';
+    b.disabled = true; b.textContent = 'Eliminando';
     try {
       const idFoto = c.fotos[k].id;
-      const cap = await cambiarIndice(token, 'Quita una foto de ' + c.titulo, (nuevo) => {
+      const cap = await cambiarIndice(token, 'Elimina una foto de ' + c.titulo, (nuevo) => {
         const cp = nuevo.capacitaciones.find((x) => x.id === c.id);
         const foto = cp && cp.fotos.find((f) => f.id === idFoto);
         if (!foto) return cp || { titulo: c.titulo, fotos: [] };
@@ -864,10 +864,10 @@
       refrescar();
       if (cap.fotos.length) {
         const f = foco; abrirVisor(cap, Math.min(k, cap.fotos.length - 1)); foco = f;
-        avisar('Foto quitada de ' + cap.titulo + '. Se puede restaurar desde la papelera durante 24 horas.');
+        avisar('Foto eliminada de ' + cap.titulo + '. Se puede restaurar desde la papelera durante 24 horas.');
       } else {
         cerrarVisor();
-        avisar('Foto quitada. ' + cap.titulo + ' no tenía más fotos y salió del álbum. Se puede restaurar desde la papelera durante 24 horas.');
+        avisar('Foto eliminada. ' + cap.titulo + ' no tenía más fotos y salió del álbum. Se puede restaurar desde la papelera durante 24 horas.');
       }
     } catch (e) {
       restaurarQuitar();
@@ -879,7 +879,7 @@
         $('dialogo-token').hidden = false;
         $('token').focus();
       } else {
-        avisar('No se quitó la foto: ' + e.message + '.', true);
+        avisar('No se eliminó la foto: ' + e.message + '.', true);
       }
     }
   }
@@ -1018,7 +1018,7 @@
   $('visor-quitar').addEventListener('click', () => {
     const b = $('visor-quitar');
     if (!esperaQuitar) {
-      b.textContent = 'Sí, quitar esta foto';
+      b.textContent = 'Sí, eliminar esta foto';
       b.classList.add('visor__boton--alerta');
       esperaQuitar = setTimeout(restaurarQuitar, 5000);
       return;
