@@ -90,8 +90,8 @@
 <div id="dialogo-token" class="dialogo" role="dialog" aria-modal="true" aria-labelledby="dialogo-token-titulo" hidden>
   <form class="dialogo__caja" id="form-token">
     <h2 id="dialogo-token-titulo">Conectar con GitHub para guardar</h2>
-    <p>Los cambios se guardan en el repositorio del álbum. Pegue un token de GitHub con permiso de escritura en ese repositorio (Contents: Read and write). Queda guardado solo en este navegador.</p>
-    <p><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crear un token en GitHub</a></p>
+    <p>Los cambios se guardan en el repositorio del álbum. Pegue un token de GitHub (empieza por ghp_). Queda guardado solo en este navegador.</p>
+    <p><a href="https://github.com/settings/tokens/new?scopes=repo&amp;description=Album%20de%20capacitaciones" target="_blank" rel="noopener">Crear un token en GitHub</a></p>
     <label for="token">Token de GitHub</label>
     <input id="token" type="password" autocomplete="off" spellcheck="false" required>
     <p id="error-token" class="error" role="alert" hidden></p>
@@ -123,7 +123,7 @@
     <div id="campo-token-fotos" hidden>
       <label for="token-fotos">Token de GitHub</label>
       <input id="token-fotos" type="password" autocomplete="off" spellcheck="false">
-      <p class="ayuda">Se pide una sola vez en este navegador. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crear un token</a> con permiso Contents: Read and write en el repositorio del álbum.</p>
+      <p class="ayuda">Se pide una sola vez en este navegador. <a href="https://github.com/settings/tokens/new?scopes=repo&amp;description=Album%20de%20capacitaciones" target="_blank" rel="noopener">Crear un token</a> : abra el enlace, baje y pulse Generate token. Copie el código que empieza por ghp_ y péguelo aquí.</p>
     </div>
 
     <p id="progreso-fotos" class="progreso" role="status" hidden></p>
